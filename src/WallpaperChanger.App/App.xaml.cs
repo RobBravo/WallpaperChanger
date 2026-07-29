@@ -39,11 +39,12 @@ public partial class App : System.Windows.Application
             "WallpaperChanger",
             "settings.json");
 
+        var monitorRegistry = new WindowsMonitorRegistry();
         viewModel = new MainViewModel(
             new JsonSettingsStore(settingsPath),
-            new WindowsMonitorRegistry(),
+            monitorRegistry,
             new CompositeWallpaperService(
-                new WindowsMonitorRegistry(),
+                monitorRegistry,
                 new CompositeWallpaperRenderer(),
                 new SystemWallpaperGateway()),
             profile => new ShuffleBagImagePicker(Random.Shared, profile.RemainingImages),
@@ -106,6 +107,7 @@ public partial class App : System.Windows.Application
             var operation = Dispatcher.InvokeAsync(() => viewModel.InitializeAsync());
             var initializeTask = await operation.Task;
             await initializeTask;
+            await viewModel.RecomposeAsync();
         }
         catch (Exception ex)
         {

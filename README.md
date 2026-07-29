@@ -10,7 +10,7 @@
 
 ## Una experiencia de escritorio que se adapta a cada pantalla
 
-`WallpaperChanger` rota fondos reales de Windows de forma independiente por monitor. Elige una carpeta y un intervalo para cada pantalla; la aplicación conserva la programación y evita repetir imágenes hasta completar el ciclo.
+`WallpaperChanger` rota fondos reales de Windows de forma independiente por monitor. Elige una carpeta y un intervalo para cada pantalla; la aplicación conserva la programación y evita repetir imágenes hasta completar el ciclo. Las imágenes activas se combinan en un único fondo nativo de Windows con estilo Span.
 
 ## Características
 
@@ -19,7 +19,7 @@
 - Aplicación inmediata y programación persistente.
 - Ícono de bandeja para abrir la configuración o salir.
 - Inicio automático para el usuario actual de Windows.
-- Uso del fondo de escritorio nativo de Windows, no ventanas superpuestas.
+- Uso de un fondo de escritorio nativo de Windows compuesto con estilo Span, no ventanas superpuestas.
 
 ## Requisitos
 
@@ -67,7 +67,7 @@ El instalador resultante se encuentra en `artifacts\installer\WallpaperChanger-S
 
 ## Cómo funciona
 
-Cada monitor conserva su propia configuración, próxima ejecución y estado de selección. Cuando llega el momento programado, la aplicación obtiene una imagen de la carpeta asignada, la aplica mediante la API de escritorio de Windows y guarda el nuevo estado. Al agotar una ronda de imágenes, crea una nueva bolsa aleatoria.
+Cada monitor conserva su propia configuración, próxima ejecución y estado de selección. Cuando llega el momento programado, la aplicación obtiene una imagen de la carpeta asignada, recompone todas las imágenes activas en un único bitmap y lo aplica mediante la API de escritorio de Windows. El bitmap se guarda en `%LocalAppData%\WallpaperChanger\composite-wallpaper.bmp`. Al agotar una ronda de imágenes, crea una nueva bolsa aleatoria. Al cambiar la topología de pantallas, la aplicación recompone las imágenes conocidas sin avanzar la bolsa de selección de ningún monitor.
 
 ## Persistencia e inicio automático
 

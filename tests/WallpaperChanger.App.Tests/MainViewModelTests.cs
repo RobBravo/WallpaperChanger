@@ -63,6 +63,44 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task RecomposeAsync_after_topology_refresh_retains_known_images_and_applies_one_snapshot()
+    {
+        var settings = new FakeSettingsStore(
+            new[]
+            {
+                new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "one.jpg" },
+                new WallpaperMonitorProfile("monitor-2") { LastAppliedImage = "two.jpg" }
+            });
+        var registry = new FakeMonitorRegistry("monitor-1", "monitor-2");
+        var wallpaper = new FakeWallpaperService();
+        var pickers = new List<FakeImagePicker>();
+        var vm = new MainViewModel(
+            settings,
+            registry,
+            wallpaper,
+            _ =>
+            {
+                var picker = new FakeImagePicker();
+                pickers.Add(picker);
+                return picker;
+            },
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        registry.SetConnectedMonitors("monitor-2", "monitor-1");
+        await vm.InitializeAsync();
+        await vm.RecomposeAsync();
+
+        Assert.Equal("monitor-2", vm.Monitors[0].MonitorId);
+        Assert.Equal("two.jpg", vm.Monitors[0].CurrentImagePath);
+        Assert.Equal("one.jpg", vm.Monitors[1].CurrentImagePath);
+        Assert.Equal(1, wallpaper.ApplyCount);
+        Assert.Equal("one.jpg", wallpaper.LastSnapshot!["monitor-1"]);
+        Assert.Equal("two.jpg", wallpaper.LastSnapshot["monitor-2"]);
+        Assert.All(pickers, picker => Assert.Equal(0, picker.PickCount));
+    }
+
+    [Fact]
     public async Task InitializeAsync_disables_rows_with_missing_folders()
     {
         var settings = new FakeSettingsStore(
@@ -468,9 +506,16 @@ public class MainViewModelTests
 
     private sealed class FakeMonitorRegistry : IMonitorRegistry
     {
-        private readonly IReadOnlyList<MonitorDescriptor> monitors;
+        private IReadOnlyList<MonitorDescriptor> monitors;
 
         public FakeMonitorRegistry(params string[] monitorIds)
+        {
+            monitors = monitorIds
+                .Select((monitorId, index) => new MonitorDescriptor(monitorId, monitorId, index, 0, 1, 1, index == 0))
+                .ToArray();
+        }
+
+        public void SetConnectedMonitors(params string[] monitorIds)
         {
             monitors = monitorIds
                 .Select((monitorId, index) => new MonitorDescriptor(monitorId, monitorId, index, 0, 1, 1, index == 0))
@@ -484,8 +529,11 @@ public class MainViewModelTests
     {
         public IReadOnlyDictionary<string, string>? LastSnapshot { get; private set; }
 
+        public int ApplyCount { get; private set; }
+
         public Task ApplyAsync(IReadOnlyDictionary<string, string> imagePathsByMonitorId, CancellationToken cancellationToken = default)
         {
+            ApplyCount++;
             LastSnapshot = new Dictionary<string, string>(imagePathsByMonitorId);
             return Task.CompletedTask;
         }
@@ -541,6 +589,8 @@ public class MainViewModelTests
 
         private string? lastPickedImage;
 
+        public int PickCount { get; private set; }
+
         public string? LastPickedImage => lastPickedImage;
 
         public IReadOnlyList<string> RemainingImages => LastImagePaths?.ToArray() ?? Array.Empty<string>();
@@ -552,6 +602,7 @@ public class MainViewModelTests
 
         public string PickNext(IReadOnlyCollection<string> imagePaths)
         {
+            PickCount++;
             LastImagePaths = imagePaths.ToArray();
             lastPickedImage = PeekNext(imagePaths);
             return lastPickedImage;

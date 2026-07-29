@@ -110,6 +110,28 @@ public sealed class MainViewModel : ObservableObject
         return SaveAsync(cancellationToken);
     }
 
+    public async Task RecomposeAsync(CancellationToken cancellationToken = default)
+    {
+        await snapshotApplyGate.WaitAsync(cancellationToken);
+        try
+        {
+            var snapshot = Monitors
+                .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
+                .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
+
+            if (snapshot.Count != Monitors.Count || snapshot.Count == 0)
+            {
+                return;
+            }
+
+            await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+        }
+        finally
+        {
+            snapshotApplyGate.Release();
+        }
+    }
+
     private Task SaveAsync(CancellationToken cancellationToken = default)
     {
         return SaveAsyncCore(cancellationToken);
