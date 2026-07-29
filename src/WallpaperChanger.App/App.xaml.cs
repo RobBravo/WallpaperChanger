@@ -1,7 +1,6 @@
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
-using WallpaperChanger.App.Interop;
 using WallpaperChanger.App.Services;
 using WallpaperChanger.App.ViewModels;
 using WallpaperChanger.Core.Abstractions;
@@ -43,7 +42,10 @@ public partial class App : System.Windows.Application
         viewModel = new MainViewModel(
             new JsonSettingsStore(settingsPath),
             new WindowsMonitorRegistry(),
-            new DesktopWallpaperService(new DesktopWallpaper()),
+            new CompositeWallpaperService(
+                new WindowsMonitorRegistry(),
+                new CompositeWallpaperRenderer(),
+                new SystemWallpaperGateway()),
             profile => new ShuffleBagImagePicker(Random.Shared, profile.RemainingImages),
             new WindowsFolderPicker());
 
