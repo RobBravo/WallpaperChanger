@@ -25,15 +25,6 @@ public sealed class WallpaperRotationService : IDisposable
     public void Dispose()
     {
         cancellationTokenSource.Cancel();
-        try
-        {
-            loopTask?.Wait(TimeSpan.FromSeconds(2));
-        }
-        catch (AggregateException)
-        {
-        }
-
-        cancellationTokenSource.Dispose();
     }
 
     private async Task RunAsync()
@@ -52,7 +43,7 @@ public sealed class WallpaperRotationService : IDisposable
                 {
                     try
                     {
-                        await row.ApplyNowAsync().ConfigureAwait(false);
+                        await row.ApplyIfDueAsync().ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

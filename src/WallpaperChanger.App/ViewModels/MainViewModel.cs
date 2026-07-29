@@ -64,6 +64,11 @@ public sealed class MainViewModel : ObservableObject
 
         foreach (var profile in savedProfiles)
         {
+            if (string.IsNullOrWhiteSpace(profile.MonitorId))
+            {
+                continue;
+            }
+
             savedProfilesById[profile.MonitorId] = profile;
         }
 
@@ -295,6 +300,11 @@ public sealed class MonitorRowViewModel : ObservableObject
         return ApplyNowAndRescheduleAsync();
     }
 
+    internal Task ApplyIfDueAsync()
+    {
+        return ApplyNowAndRescheduleAsync(onlyIfDue: true);
+    }
+
     public void ScheduleNextRun()
     {
         if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
@@ -319,12 +329,17 @@ public sealed class MonitorRowViewModel : ObservableObject
         }
     }
 
-    private async Task ApplyNowAndRescheduleAsync()
+    private async Task ApplyNowAndRescheduleAsync(bool onlyIfDue = false)
     {
         await applyGate.WaitAsync();
 
         try
         {
+            if (onlyIfDue && NextRunAt > DateTimeOffset.UtcNow)
+            {
+                return;
+            }
+
             await owner.ApplyNowAsync(this);
             ScheduleNextRun();
             await owner.PersistAsync();

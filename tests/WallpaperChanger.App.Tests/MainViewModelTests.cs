@@ -66,6 +66,38 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_skips_saved_profiles_with_missing_monitor_ids()
+    {
+        var settings = new FakeSettingsStore(
+            new[]
+            {
+                new WallpaperMonitorProfile("")
+                {
+                    FolderPath = "C:/Invalid",
+                    IntervalValue = 15,
+                    IntervalUnit = "minutes"
+                },
+                new WallpaperMonitorProfile("monitor-1")
+                {
+                    FolderPath = Path.GetTempPath(),
+                    IntervalValue = 15,
+                    IntervalUnit = "minutes"
+                }
+            });
+        var registry = new FakeMonitorRegistry("monitor-1");
+        var wallpaper = new FakeWallpaperService();
+        var imagePicker = new FakeImagePicker();
+        var folderPicker = new FakeFolderPicker();
+
+        var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
+
+        await vm.InitializeAsync();
+
+        Assert.Single(vm.Monitors);
+        Assert.Equal("monitor-1", vm.Monitors[0].MonitorId);
+    }
+
+    [Fact]
     public async Task InitializeAsync_clamps_overflowing_intervals()
     {
         var settings = new FakeSettingsStore(
