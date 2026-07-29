@@ -20,4 +20,6 @@ public sealed class WallpaperMonitorProfile
     public string? LastAppliedImage { get; set; }
 
     public IReadOnlyList<string> RemainingImages { get; set; } = Array.Empty<string>();
+
+    public DateTimeOffset? NextRunAt { get; set; }
 }

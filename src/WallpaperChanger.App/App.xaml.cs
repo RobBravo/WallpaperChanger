@@ -20,7 +20,18 @@ public partial class App : Application
 
         var executablePath = Environment.ProcessPath ?? throw new InvalidOperationException("Unable to determine the application path.");
         var startupService = new StartupService(new CurrentUserRunKeyWriter(), "WallpaperChanger", executablePath);
-        startupService.EnsureRegistered();
+        try
+        {
+            startupService.EnsureRegistered();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"WallpaperChanger could not register startup: {ex.Message}",
+                "WallpaperChanger",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
 
         var settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

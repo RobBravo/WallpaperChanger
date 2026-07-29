@@ -63,7 +63,14 @@ public sealed class MainViewModel : ObservableObject
             savedProfilesById.TryGetValue(monitorId, out var profile);
             var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
             var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
-            row.ScheduleNextRun();
+            if (rowProfile.NextRunAt is { } nextRunAt)
+            {
+                row.RestoreNextRun(nextRunAt);
+            }
+            else
+            {
+                row.ScheduleNextRun();
+            }
             Monitors.Add(row);
         }
     }
@@ -131,8 +138,9 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var chosenImage = row.PickNextImage(imagePaths);
+        var chosenImage = row.PeekNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
+        row.ConsumeNextImage(imagePaths);
         await SaveAsync(cancellationToken);
         StatusMessage = $"Applied wallpaper for {row.MonitorId}.";
     }
@@ -257,19 +265,19 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     private async Task ApplyNowAndRescheduleAsync()
     {
-        try
-        {
-            await owner.ApplyNowAsync(this);
-        }
-        finally
-        {
-            ScheduleNextRun();
-        }
+        await owner.ApplyNowAsync(this);
+        ScheduleNextRun();
+        await owner.PersistAsync();
     }
 
-    internal string PickNextImage(IReadOnlyCollection<string> imagePaths)
+    internal string PeekNextImage(IReadOnlyCollection<string> imagePaths)
     {
-        return imagePicker.PickNext(imagePaths);
+        return imagePicker.PeekNext(imagePaths);
+    }
+
+    internal void ConsumeNextImage(IReadOnlyCollection<string> imagePaths)
+    {
+        imagePicker.PickNext(imagePaths);
     }
 
     public WallpaperMonitorProfile ToProfile()
@@ -280,8 +288,14 @@ public sealed class MonitorRowViewModel : ObservableObject
             IntervalValue = IntervalValue,
             IntervalUnit = IntervalUnit,
             LastAppliedImage = imagePicker.LastPickedImage,
-            RemainingImages = imagePicker.RemainingImages
+            RemainingImages = imagePicker.RemainingImages,
+            NextRunAt = NextRunAt
         };
+    }
+
+    internal void RestoreNextRun(DateTimeOffset nextRunAt)
+    {
+        NextRunAt = nextRunAt;
     }
 }
 

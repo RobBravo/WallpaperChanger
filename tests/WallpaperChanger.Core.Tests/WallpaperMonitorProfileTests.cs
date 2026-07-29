@@ -16,5 +16,6 @@ public class WallpaperMonitorProfileTests
         Assert.Null(profile.FolderPath);
         Assert.Null(profile.LastAppliedImage);
         Assert.Empty(profile.RemainingImages);
+        Assert.Null(profile.NextRunAt);
     }
 }

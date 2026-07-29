@@ -97,7 +97,8 @@ public class JsonSettingsStoreTests
                 IntervalValue = 15,
                 IntervalUnit = "minutes",
                 LastAppliedImage = "C:/Wallpapers/Monitor1/chosen.jpg",
-                RemainingImages = new[] { "C:/Wallpapers/Monitor1/next.jpg" }
+                RemainingImages = new[] { "C:/Wallpapers/Monitor1/next.jpg" },
+                NextRunAt = new DateTimeOffset(2026, 7, 28, 11, 0, 0, TimeSpan.Zero)
             }
         };
 
@@ -110,6 +111,7 @@ public class JsonSettingsStoreTests
             Assert.Single(loaded);
             Assert.Equal("C:/Wallpapers/Monitor1/chosen.jpg", loaded[0].LastAppliedImage);
             Assert.Equal(new[] { "C:/Wallpapers/Monitor1/next.jpg" }, loaded[0].RemainingImages);
+            Assert.Equal(new DateTimeOffset(2026, 7, 28, 11, 0, 0, TimeSpan.Zero), loaded[0].NextRunAt);
         }
         finally
         {

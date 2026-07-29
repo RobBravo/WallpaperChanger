@@ -208,6 +208,7 @@ public class MainViewModelTests
         Assert.Equal("C:/Wallpapers/Monitor1", saved.FolderPath);
         Assert.Equal(30, saved.IntervalValue);
         Assert.Equal("hours", saved.IntervalUnit);
+        Assert.Equal(vm.Monitors[0].NextRunAt, saved.NextRunAt);
     }
 
     [Fact]
@@ -282,10 +283,15 @@ public class MainViewModelTests
 
         public IReadOnlyList<string> RemainingImages => LastImagePaths?.ToArray() ?? Array.Empty<string>();
 
+        public string PeekNext(IReadOnlyCollection<string> imagePaths)
+        {
+            return ImageToReturn ?? imagePaths.First();
+        }
+
         public string PickNext(IReadOnlyCollection<string> imagePaths)
         {
             LastImagePaths = imagePaths.ToArray();
-            lastPickedImage = ImageToReturn ?? imagePaths.First();
+            lastPickedImage = PeekNext(imagePaths);
             return lastPickedImage;
         }
     }

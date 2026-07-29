@@ -20,6 +20,18 @@ public class ShuffleBagImagePickerTests
         Assert.Equal(first, fourth);
     }
 
+    [Fact]
+    public void Peek_next_does_not_consume_the_shuffle_bag()
+    {
+        var picker = new ShuffleBagImagePicker(new FixedRandom(0, 0, 0));
+        var images = new[] { "a.jpg", "b.jpg", "c.jpg" };
+
+        var peeked = picker.PeekNext(images);
+        var picked = picker.PickNext(images);
+
+        Assert.Equal(peeked, picked);
+    }
+
     private sealed class FixedRandom : Random
     {
         private readonly Queue<int> _values;

@@ -28,6 +28,16 @@ public sealed class ShuffleBagImagePicker : IImagePicker
 
     public string PickNext(IReadOnlyCollection<string> imagePaths)
     {
+        var next = PeekNext(imagePaths);
+
+        var index = _remaining.Count - 1;
+        _remaining.RemoveAt(index);
+        _lastPickedImage = next;
+        return next;
+    }
+
+    public string PeekNext(IReadOnlyCollection<string> imagePaths)
+    {
         ArgumentNullException.ThrowIfNull(imagePaths);
 
         var uniqueImages = imagePaths
@@ -46,11 +56,7 @@ public sealed class ShuffleBagImagePicker : IImagePicker
             Reload(uniqueImages, nextSet);
         }
 
-        var index = _remaining.Count - 1;
-        var next = _remaining[index];
-        _remaining.RemoveAt(index);
-        _lastPickedImage = next;
-        return next;
+        return _remaining[^1];
     }
 
     public string? LastPickedImage => _lastPickedImage;
