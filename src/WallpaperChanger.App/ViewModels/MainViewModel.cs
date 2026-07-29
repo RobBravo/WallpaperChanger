@@ -77,6 +77,21 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public async Task RefreshAfterDisplayChangeAsync(CancellationToken cancellationToken = default)
+    {
+        await snapshotApplyGate.WaitAsync(cancellationToken);
+        try
+        {
+            await SaveAsyncCore(cancellationToken);
+            await InitializeAsyncCore(cancellationToken);
+            await RecomposeAsyncCore(cancellationToken);
+        }
+        finally
+        {
+            snapshotApplyGate.Release();
+        }
+    }
+
     private async Task InitializeAsyncCore(CancellationToken cancellationToken)
     {
         IReadOnlyList<WallpaperMonitorProfile> savedProfiles;

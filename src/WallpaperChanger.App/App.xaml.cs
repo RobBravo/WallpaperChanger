@@ -103,8 +103,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            await viewModel.PersistAsync();
-            var operation = Dispatcher.InvokeAsync(() => viewModel.RefreshAsync());
+            var operation = Dispatcher.InvokeAsync(() => viewModel.RefreshAfterDisplayChangeAsync());
             var refreshTask = await operation.Task;
             await refreshTask;
         }

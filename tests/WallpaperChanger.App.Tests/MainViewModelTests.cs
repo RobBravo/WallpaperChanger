@@ -145,6 +145,48 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAfterDisplayChangeAsync_persists_a_completed_apply_before_rebuilding_rows()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "chosen.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var settings = new FakeSettingsStore(new[] { new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "old.jpg" } });
+            var wallpaper = new CoordinatedWallpaperService();
+            var vm = new MainViewModel(
+                settings,
+                new FakeMonitorRegistry("monitor-1"),
+                wallpaper,
+                _ => new FakeImagePicker { ImageToReturn = imagePath },
+                new FakeFolderPicker());
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = folder;
+            var applyTask = vm.Monitors[0].ApplyNowAsync();
+            await wallpaper.FirstApplyStarted.Task;
+
+            var refreshTask = vm.RefreshAfterDisplayChangeAsync();
+            Assert.False(refreshTask.IsCompleted);
+
+            wallpaper.ReleaseFirstApply();
+            await wallpaper.SecondApplyStarted.Task;
+            wallpaper.ReleaseSecondApply();
+            await Task.WhenAll(applyTask, refreshTask);
+
+            Assert.Equal(imagePath, settings.SavedProfiles!.Single().LastAppliedImage);
+            Assert.Equal(imagePath, vm.Monitors[0].CurrentImagePath);
+            Assert.Equal(imagePath, wallpaper.LastSnapshot!["monitor-1"]);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RefreshAsync_with_a_new_unconfigured_monitor_applies_the_known_image_snapshot()
     {
         var registry = new FakeMonitorRegistry("monitor-1");
@@ -563,7 +605,7 @@ public class MainViewModelTests
 
         public Task<IReadOnlyList<WallpaperMonitorProfile>> LoadAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(loadedProfiles);
+            return Task.FromResult<IReadOnlyList<WallpaperMonitorProfile>>(SavedProfiles?.ToArray() ?? loadedProfiles);
         }
 
         public Task SaveAsync(IReadOnlyCollection<WallpaperMonitorProfile> profiles, CancellationToken cancellationToken = default)
