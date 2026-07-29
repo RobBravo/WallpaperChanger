@@ -9,6 +9,8 @@ namespace WallpaperChanger.App;
 
 public partial class App : Application
 {
+    private TrayIconService? trayIconService;
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -33,6 +35,7 @@ public partial class App : Application
         {
             DataContext = viewModel
         };
+        trayIconService = new TrayIconService(ShowMainWindow, ExitApplication);
         MainWindow.Show();
 
         try
@@ -47,5 +50,32 @@ public partial class App : Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        trayIconService?.Dispose();
+        trayIconService = null;
+
+        base.OnExit(e);
+    }
+
+    private void ShowMainWindow()
+    {
+        if (MainWindow is MainWindow window)
+        {
+            window.ShowFromTray();
+        }
+    }
+
+    private void ExitApplication()
+    {
+        if (MainWindow is MainWindow window)
+        {
+            window.AllowClose = true;
+            window.Close();
+        }
+
+        Shutdown();
     }
 }
