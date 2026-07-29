@@ -39,6 +39,24 @@ dotnet build
 
 Abre `WallpaperChanger.sln` en Visual Studio 2022 y presiona **F5** para iniciar la aplicación.
 
+## Crear el instalador
+
+El instalador se genera para Windows x64, se instala por usuario y no requiere permisos de administrador.
+
+1. Instala Inno Setup 6 una sola vez:
+
+   ```powershell
+   winget install --id JRSoftware.InnoSetup --exact
+   ```
+
+2. Genera el ejecutable y el instalador:
+
+   ```powershell
+   .\scripts\build-installer.ps1
+   ```
+
+El instalador resultante se encuentra en `artifacts\installer\WallpaperChanger-Setup.exe`. Esta primera versión no está firmada digitalmente, por lo que Windows SmartScreen puede mostrar una advertencia al ejecutar un archivo descargado.
+
 ## Configuración por monitor
 
 1. Abre la ventana desde el ícono de bandeja.
