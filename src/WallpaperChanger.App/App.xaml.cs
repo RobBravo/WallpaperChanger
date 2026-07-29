@@ -104,10 +104,9 @@ public partial class App : System.Windows.Application
         try
         {
             await viewModel.PersistAsync();
-            var operation = Dispatcher.InvokeAsync(() => viewModel.InitializeAsync());
-            var initializeTask = await operation.Task;
-            await initializeTask;
-            await viewModel.RecomposeAsync();
+            var operation = Dispatcher.InvokeAsync(() => viewModel.RefreshAsync());
+            var refreshTask = await operation.Task;
+            await refreshTask;
         }
         catch (Exception ex)
         {

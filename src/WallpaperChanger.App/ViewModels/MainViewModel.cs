@@ -52,6 +52,33 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
+        await snapshotApplyGate.WaitAsync(cancellationToken);
+        try
+        {
+            await InitializeAsyncCore(cancellationToken);
+        }
+        finally
+        {
+            snapshotApplyGate.Release();
+        }
+    }
+
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        await snapshotApplyGate.WaitAsync(cancellationToken);
+        try
+        {
+            await InitializeAsyncCore(cancellationToken);
+            await RecomposeAsyncCore(cancellationToken);
+        }
+        finally
+        {
+            snapshotApplyGate.Release();
+        }
+    }
+
+    private async Task InitializeAsyncCore(CancellationToken cancellationToken)
+    {
         IReadOnlyList<WallpaperMonitorProfile> savedProfiles;
         try
         {
@@ -115,21 +142,23 @@ public sealed class MainViewModel : ObservableObject
         await snapshotApplyGate.WaitAsync(cancellationToken);
         try
         {
-            var snapshot = Monitors
-                .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
-                .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
-
-            if (snapshot.Count != Monitors.Count || snapshot.Count == 0)
-            {
-                return;
-            }
-
-            await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+            await RecomposeAsyncCore(cancellationToken);
         }
         finally
         {
             snapshotApplyGate.Release();
         }
+    }
+
+    private Task RecomposeAsyncCore(CancellationToken cancellationToken)
+    {
+        var snapshot = Monitors
+            .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
+            .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
+
+        return snapshot.Count == 0
+            ? Task.CompletedTask
+            : wallpaperService.ApplyAsync(snapshot, cancellationToken);
     }
 
     private Task SaveAsync(CancellationToken cancellationToken = default)
@@ -226,13 +255,13 @@ public sealed class MainViewModel : ObservableObject
 
             await wallpaperService.ApplyAsync(snapshot, cancellationToken);
             row.CurrentImagePath = chosenImage;
+            row.ConsumeNextImage(imagePaths);
         }
         finally
         {
             snapshotApplyGate.Release();
         }
 
-        row.ConsumeNextImage(imagePaths);
         SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
         return true;
     }

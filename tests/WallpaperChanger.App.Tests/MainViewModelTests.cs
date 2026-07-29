@@ -101,6 +101,75 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAsync_waits_for_an_in_progress_apply_to_consume_its_image_before_replacing_rows()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "chosen.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var registry = new FakeMonitorRegistry("monitor-1");
+            var wallpaper = new CoordinatedWallpaperService();
+            var picker = new FakeImagePicker { ImageToReturn = imagePath };
+            var vm = new MainViewModel(
+                new FakeSettingsStore(new[] { new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "old.jpg" } }),
+                registry,
+                wallpaper,
+                _ => picker,
+                new FakeFolderPicker());
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = folder;
+            var applyTask = vm.Monitors[0].ApplyNowAsync();
+            await wallpaper.FirstApplyStarted.Task;
+
+            registry.SetConnectedMonitors("monitor-1", "monitor-2");
+            var refreshTask = vm.RefreshAsync();
+            Assert.False(refreshTask.IsCompleted);
+
+            wallpaper.ReleaseFirstApply();
+            await wallpaper.SecondApplyStarted.Task;
+
+            Assert.Equal(1, picker.PickCount);
+            Assert.Equal(2, vm.Monitors.Count);
+
+            wallpaper.ReleaseSecondApply();
+            await Task.WhenAll(applyTask, refreshTask);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshAsync_with_a_new_unconfigured_monitor_applies_the_known_image_snapshot()
+    {
+        var registry = new FakeMonitorRegistry("monitor-1");
+        var wallpaper = new FakeWallpaperService();
+        var vm = new MainViewModel(
+            new FakeSettingsStore(new[] { new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "one.jpg" } }),
+            registry,
+            wallpaper,
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        registry.SetConnectedMonitors("monitor-1", "monitor-2");
+
+        await vm.RefreshAsync();
+
+        Assert.Equal(2, vm.Monitors.Count);
+        Assert.Equal(1, wallpaper.ApplyCount);
+        var snapshot = wallpaper.LastSnapshot;
+        Assert.NotNull(snapshot);
+        Assert.Single(snapshot);
+        Assert.Equal("one.jpg", snapshot["monitor-1"]);
+    }
+
+    [Fact]
     public async Task InitializeAsync_disables_rows_with_missing_folders()
     {
         var settings = new FakeSettingsStore(
