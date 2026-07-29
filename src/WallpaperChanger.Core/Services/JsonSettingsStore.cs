@@ -26,7 +26,7 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
 
         await using var stream = File.OpenRead(_filePath);
-        return await JsonSerializer.DeserializeAsync<List<WallpaperMonitorProfile>>(stream, SerializerOptions, cancellationToken)
+        return (IReadOnlyList<WallpaperMonitorProfile>?)await JsonSerializer.DeserializeAsync<List<WallpaperMonitorProfile>>(stream, SerializerOptions, cancellationToken)
             ?? Array.Empty<WallpaperMonitorProfile>();
     }
 

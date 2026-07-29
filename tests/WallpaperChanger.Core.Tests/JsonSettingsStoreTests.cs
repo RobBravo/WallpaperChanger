@@ -65,6 +65,28 @@ public class JsonSettingsStoreTests
     }
 
     [Fact]
+    public async Task Loads_empty_list_when_file_contains_null()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}.json");
+        await File.WriteAllTextAsync(path, "null");
+        var store = new JsonSettingsStore(path);
+
+        try
+        {
+            var loaded = await store.LoadAsync();
+
+            Assert.Empty(loaded);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Throws_when_file_is_corrupted()
     {
         var path = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}.json");

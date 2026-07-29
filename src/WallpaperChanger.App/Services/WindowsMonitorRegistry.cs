@@ -7,7 +7,7 @@ public sealed class WindowsMonitorRegistry : IMonitorRegistry
 {
     public IReadOnlyList<string> GetConnectedMonitorIds()
     {
-        var wallpaper = (IDesktopWallpaperCom)new DesktopWallpaperComClass();
+        var wallpaper = DesktopWallpaperComFactory.Create();
         wallpaper.GetMonitorDevicePathCount(out var count);
 
         var monitorIds = new string[count];

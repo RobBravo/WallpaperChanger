@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using WallpaperChanger.App.Interop;
@@ -8,7 +9,7 @@ using WallpaperChanger.Core.Services;
 
 namespace WallpaperChanger.App;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private MainViewModel? viewModel;
     private TrayIconService? trayIconService;
@@ -27,7 +28,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 $"WallpaperChanger could not register startup: {ex.Message}",
                 "WallpaperChanger",
                 MessageBoxButton.OK,
@@ -53,16 +54,16 @@ public partial class App : Application
         trayIconService = new TrayIconService(ShowMainWindow, ExitApplicationAsync);
 
         rotationService = new WallpaperRotationService(viewModel, new SystemClock());
-        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
         try
         {
             await viewModel.InitializeAsync();
             rotationService.Start();
+            SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 $"WallpaperChanger could not load settings: {ex.Message}",
                 "WallpaperChanger",
                 MessageBoxButton.OK,

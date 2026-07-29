@@ -11,7 +11,7 @@ public sealed class DesktopWallpaper : IDesktopWallpaperGateway
 {
     public Task SetWallpaperAsync(string monitorId, string imagePath)
     {
-        var wallpaper = (IDesktopWallpaperCom)new DesktopWallpaperComClass();
+        var wallpaper = DesktopWallpaperComFactory.Create();
         wallpaper.SetWallpaper(monitorId, imagePath);
 
         return Task.CompletedTask;
@@ -36,8 +36,16 @@ internal interface IDesktopWallpaperCom
     void GetMonitorDevicePathCount(out uint count);
 }
 
-[ComImport]
-[Guid("C2CF3110-460E-4FC1-B9D0-8A24A0C31775")]
-internal sealed class DesktopWallpaperComClass
+internal static class DesktopWallpaperComFactory
 {
+    private static readonly Guid ClassId = new("C2CF3110-460E-4FC1-B9D0-8A24A0C31775");
+
+    public static IDesktopWallpaperCom Create()
+    {
+        var type = Type.GetTypeFromCLSID(ClassId, throwOnError: true)
+            ?? throw new InvalidOperationException("The desktop wallpaper COM class is unavailable.");
+
+        return (IDesktopWallpaperCom)(Activator.CreateInstance(type)
+            ?? throw new InvalidOperationException("The desktop wallpaper COM object could not be created."));
+    }
 }

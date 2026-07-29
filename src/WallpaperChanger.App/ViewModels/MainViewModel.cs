@@ -24,6 +24,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IFolderPicker folderPicker;
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
     private readonly object stateLock = new();
+    private readonly SemaphoreSlim saveGate = new(1, 1);
     private string? statusMessage;
 
     public MainViewModel(
@@ -114,31 +115,40 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task SaveAsyncCore(CancellationToken cancellationToken)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        var rows = dispatcher is null
-            ? Monitors.ToArray()
-            : await dispatcher.InvokeAsync(() => Monitors.ToArray());
+        await saveGate.WaitAsync(cancellationToken);
 
-        IReadOnlyCollection<WallpaperMonitorProfile> profiles;
-        lock (stateLock)
+        try
         {
-            var profilesById = new Dictionary<string, WallpaperMonitorProfile>(savedProfilesById, StringComparer.OrdinalIgnoreCase);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            var rows = dispatcher is null
+                ? Monitors.ToArray()
+                : await dispatcher.InvokeAsync(() => Monitors.ToArray());
 
-            foreach (var row in rows)
+            IReadOnlyCollection<WallpaperMonitorProfile> profiles;
+            lock (stateLock)
             {
-                profilesById[row.MonitorId] = row.ToProfile();
+                var profilesById = new Dictionary<string, WallpaperMonitorProfile>(savedProfilesById, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var row in rows)
+                {
+                    profilesById[row.MonitorId] = row.ToProfile();
+                }
+
+                savedProfilesById.Clear();
+                foreach (var pair in profilesById)
+                {
+                    savedProfilesById[pair.Key] = pair.Value;
+                }
+
+                profiles = profilesById.Values.ToArray();
             }
 
-            savedProfilesById.Clear();
-            foreach (var pair in profilesById)
-            {
-                savedProfilesById[pair.Key] = pair.Value;
-            }
-
-            profiles = profilesById.Values.ToArray();
+            await settingsStore.SaveAsync(profiles, cancellationToken);
         }
-
-        await settingsStore.SaveAsync(profiles, cancellationToken);
+        finally
+        {
+            saveGate.Release();
+        }
     }
 
     internal void BrowseFolder(MonitorRowViewModel row)
@@ -160,13 +170,13 @@ public sealed class MainViewModel : ObservableObject
         SetStatusMessage(exception.Message);
     }
 
-    internal async Task ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
+    internal async Task<bool> ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
         {
-            await SaveAsync(cancellationToken).ConfigureAwait(false);
+            row.RestoreNextRun(DateTimeOffset.MaxValue);
             SetStatusMessage($"Folder not found for {row.MonitorId}.");
-            return;
+            return false;
         }
 
         var imagePaths = Directory
@@ -176,21 +186,21 @@ public sealed class MainViewModel : ObservableObject
 
         if (imagePaths.Length == 0)
         {
-            await SaveAsync(cancellationToken).ConfigureAwait(false);
+            row.RestoreNextRun(DateTimeOffset.MaxValue);
             SetStatusMessage($"No images found in {row.FolderPath}.");
-            return;
+            return false;
         }
 
         var chosenImage = row.PeekNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
         row.ConsumeNextImage(imagePaths);
-        await SaveAsync(cancellationToken).ConfigureAwait(false);
         SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
+        return true;
     }
 
     private void SetStatusMessage(string message)
     {
-        var dispatcher = Application.Current?.Dispatcher;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is null || dispatcher.CheckAccess())
         {
             StatusMessage = message;
@@ -340,8 +350,12 @@ public sealed class MonitorRowViewModel : ObservableObject
                 return;
             }
 
-            await owner.ApplyNowAsync(this);
-            ScheduleNextRun();
+            var applied = await owner.ApplyNowAsync(this);
+            if (applied)
+            {
+                ScheduleNextRun();
+            }
+
             await owner.PersistAsync();
         }
         finally
@@ -380,7 +394,7 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     private void UpdateNextRunAt(DateTimeOffset nextRunAt)
     {
-        var dispatcher = Application.Current?.Dispatcher;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is null || dispatcher.CheckAccess())
         {
             NextRunAt = nextRunAt;

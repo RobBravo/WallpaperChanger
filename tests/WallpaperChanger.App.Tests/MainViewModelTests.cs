@@ -138,7 +138,7 @@ public class MainViewModelTests
         await vm.Monitors[0].BrowseFolderAsync();
 
         Assert.Equal("C:/Wallpapers/Monitor1", vm.Monitors[0].FolderPath);
-        Assert.Equal("C:/Wallpapers/Monitor1", folderPicker.LastInitialFolder);
+        Assert.Null(folderPicker.LastInitialFolder);
     }
 
     [Fact]

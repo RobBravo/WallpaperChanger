@@ -36,7 +36,7 @@ public sealed class WallpaperRotationService : IDisposable
             while (await timer.WaitForNextTickAsync(cancellationTokenSource.Token))
             {
                 var now = clock.UtcNow;
-                var dueRows = await Application.Current.Dispatcher.InvokeAsync(() =>
+                var dueRows = await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     viewModel.Monitors.Where(row => row.NextRunAt <= now).ToArray()).Task;
 
                 foreach (var row in dueRows)
