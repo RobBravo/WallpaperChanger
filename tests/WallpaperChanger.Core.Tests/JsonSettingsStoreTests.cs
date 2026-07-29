@@ -83,4 +83,40 @@ public class JsonSettingsStoreTests
             }
         }
     }
+
+    [Fact]
+    public async Task Saves_and_loads_shuffle_state()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}.json");
+        var store = new JsonSettingsStore(path);
+        var profiles = new[]
+        {
+            new WallpaperMonitorProfile("monitor-1")
+            {
+                FolderPath = "C:/Wallpapers/Monitor1",
+                IntervalValue = 15,
+                IntervalUnit = "minutes",
+                LastAppliedImage = "C:/Wallpapers/Monitor1/chosen.jpg",
+                RemainingImages = new[] { "C:/Wallpapers/Monitor1/next.jpg" }
+            }
+        };
+
+        try
+        {
+            await store.SaveAsync(profiles);
+
+            var loaded = await store.LoadAsync();
+
+            Assert.Single(loaded);
+            Assert.Equal("C:/Wallpapers/Monitor1/chosen.jpg", loaded[0].LastAppliedImage);
+            Assert.Equal(new[] { "C:/Wallpapers/Monitor1/next.jpg" }, loaded[0].RemainingImages);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
 }

@@ -16,4 +16,8 @@ public sealed class WallpaperMonitorProfile
     public int IntervalValue { get; set; }
 
     public string IntervalUnit { get; set; }
+
+    public string? LastAppliedImage { get; set; }
+
+    public IReadOnlyList<string> RemainingImages { get; set; } = Array.Empty<string>();
 }

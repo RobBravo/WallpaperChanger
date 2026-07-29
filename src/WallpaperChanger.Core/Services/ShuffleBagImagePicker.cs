@@ -8,10 +8,22 @@ public sealed class ShuffleBagImagePicker : IImagePicker
     private readonly StringComparer _comparer = StringComparer.OrdinalIgnoreCase;
     private readonly List<string> _remaining = new();
     private HashSet<string> _currentSet = new(StringComparer.OrdinalIgnoreCase);
+    private string? _lastPickedImage;
 
     public ShuffleBagImagePicker(Random random)
+        : this(random, null)
+    {
+    }
+
+    public ShuffleBagImagePicker(Random random, IReadOnlyCollection<string>? remainingImages)
     {
         _random = random ?? throw new ArgumentNullException(nameof(random));
+
+        if (remainingImages is { Count: > 0 })
+        {
+            _remaining.AddRange(remainingImages.Where(path => !string.IsNullOrWhiteSpace(path)));
+            _currentSet = new HashSet<string>(_remaining, _comparer);
+        }
     }
 
     public string PickNext(IReadOnlyCollection<string> imagePaths)
@@ -37,8 +49,13 @@ public sealed class ShuffleBagImagePicker : IImagePicker
         var index = _remaining.Count - 1;
         var next = _remaining[index];
         _remaining.RemoveAt(index);
+        _lastPickedImage = next;
         return next;
     }
+
+    public string? LastPickedImage => _lastPickedImage;
+
+    public IReadOnlyList<string> RemainingImages => _remaining.ToArray();
 
     private void Reload(IReadOnlyList<string> uniqueImages, HashSet<string> nextSet)
     {

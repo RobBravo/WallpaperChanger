@@ -25,7 +25,7 @@ public class MainViewModelTests
         var imagePicker = new FakeImagePicker();
         var folderPicker = new FakeFolderPicker();
 
-        var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
+        var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
 
         await vm.InitializeAsync();
 
@@ -49,7 +49,7 @@ public class MainViewModelTests
         var imagePicker = new FakeImagePicker();
         var folderPicker = new FakeFolderPicker { FolderToReturn = "C:/Wallpapers/Monitor1" };
 
-        var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
+        var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
 
         await vm.InitializeAsync();
 
@@ -76,7 +76,7 @@ public class MainViewModelTests
             var imagePicker = new FakeImagePicker { ImageToReturn = imagePath };
             var folderPicker = new FakeFolderPicker();
 
-            var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
+            var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
 
             await vm.InitializeAsync();
             vm.Monitors[0].FolderPath = folder;
@@ -87,9 +87,10 @@ public class MainViewModelTests
 
             Assert.NotNull(settings.SavedProfiles);
             Assert.Single(settings.SavedProfiles!);
-            Assert.Equal(folder, settings.SavedProfiles![0].FolderPath);
-            Assert.Equal(20, settings.SavedProfiles![0].IntervalValue);
-            Assert.Equal("minutes", settings.SavedProfiles![0].IntervalUnit);
+            var saved = settings.SavedProfiles!.Single();
+            Assert.Equal(folder, saved.FolderPath);
+            Assert.Equal(20, saved.IntervalValue);
+            Assert.Equal("minutes", saved.IntervalUnit);
             Assert.Equal(("monitor-1", imagePath), wallpaper.LastCall);
             Assert.NotNull(imagePicker.LastImagePaths);
             Assert.Contains(imagePath, imagePicker.LastImagePaths!);
@@ -116,7 +117,7 @@ public class MainViewModelTests
             settings,
             registry,
             wallpaper,
-            () =>
+            _ =>
             {
                 createdPickers++;
                 return new FakeImagePicker();
@@ -160,7 +161,7 @@ public class MainViewModelTests
             var imagePicker = new FakeImagePicker { ImageToReturn = imagePath };
             var folderPicker = new FakeFolderPicker();
 
-            var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
+            var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
 
             await vm.InitializeAsync();
             vm.Monitors[0].FolderPath = folder;
@@ -181,6 +182,32 @@ public class MainViewModelTests
                 Directory.Delete(folder, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public async Task PersistAsync_saves_in_memory_edits_without_apply_now()
+    {
+        var settings = new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>());
+        var registry = new FakeMonitorRegistry("monitor-1");
+        var wallpaper = new FakeWallpaperService();
+        var imagePicker = new FakeImagePicker();
+        var folderPicker = new FakeFolderPicker();
+
+        var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
+
+        await vm.InitializeAsync();
+        vm.Monitors[0].FolderPath = "C:/Wallpapers/Monitor1";
+        vm.Monitors[0].IntervalValue = 30;
+        vm.Monitors[0].IntervalUnit = "hours";
+
+        await vm.PersistAsync();
+
+        Assert.NotNull(settings.SavedProfiles);
+        Assert.Single(settings.SavedProfiles!);
+        var saved = settings.SavedProfiles!.Single();
+        Assert.Equal("C:/Wallpapers/Monitor1", saved.FolderPath);
+        Assert.Equal(30, saved.IntervalValue);
+        Assert.Equal("hours", saved.IntervalUnit);
     }
 
     [Fact]
@@ -249,10 +276,17 @@ public class MainViewModelTests
 
         public string? ImageToReturn { get; set; }
 
+        private string? lastPickedImage;
+
+        public string? LastPickedImage => lastPickedImage;
+
+        public IReadOnlyList<string> RemainingImages => LastImagePaths?.ToArray() ?? Array.Empty<string>();
+
         public string PickNext(IReadOnlyCollection<string> imagePaths)
         {
             LastImagePaths = imagePaths.ToArray();
-            return ImageToReturn ?? imagePaths.First();
+            lastPickedImage = ImageToReturn ?? imagePaths.First();
+            return lastPickedImage;
         }
     }
 

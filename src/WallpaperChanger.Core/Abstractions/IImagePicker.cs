@@ -3,4 +3,8 @@ namespace WallpaperChanger.Core.Abstractions;
 public interface IImagePicker
 {
     string PickNext(IReadOnlyCollection<string> imagePaths);
+
+    string? LastPickedImage { get; }
+
+    IReadOnlyList<string> RemainingImages { get; }
 }

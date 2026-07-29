@@ -7,11 +7,11 @@ public sealed class TrayIconService : IDisposable
 {
     private readonly NotifyIcon notifyIcon;
 
-    public TrayIconService(Action openWindow, Action exitApplication)
+    public TrayIconService(Action openWindow, Func<Task> exitApplication)
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open", null, (_, _) => openWindow());
-        menu.Items.Add("Exit", null, (_, _) => exitApplication());
+        menu.Items.Add("Exit", null, async (_, _) => await exitApplication());
 
         notifyIcon = new NotifyIcon
         {

@@ -31,14 +31,14 @@ public partial class App : Application
             new JsonSettingsStore(settingsPath),
             new WindowsMonitorRegistry(),
             new DesktopWallpaperService(new DesktopWallpaper()),
-            () => new ShuffleBagImagePicker(Random.Shared),
+            profile => new ShuffleBagImagePicker(Random.Shared, profile.RemainingImages),
             new WindowsFolderPicker());
 
         MainWindow = new MainWindow
         {
             DataContext = viewModel
         };
-        trayIconService = new TrayIconService(ShowMainWindow, ExitApplication);
+        trayIconService = new TrayIconService(ShowMainWindow, ExitApplicationAsync);
 
         rotationService = new WallpaperRotationService(viewModel, new SystemClock());
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -80,6 +80,7 @@ public partial class App : Application
 
         try
         {
+            await viewModel.PersistAsync();
             var operation = Dispatcher.InvokeAsync(() => viewModel.InitializeAsync());
             var initializeTask = await operation.Task;
             await initializeTask;
@@ -98,8 +99,20 @@ public partial class App : Application
         }
     }
 
-    private void ExitApplication()
+    private async Task ExitApplicationAsync()
     {
+        try
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.PersistAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            viewModel?.ReportError(ex);
+        }
+
         if (MainWindow is MainWindow window)
         {
             window.AllowClose = true;

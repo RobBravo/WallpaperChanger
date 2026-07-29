@@ -19,7 +19,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ISettingsStore settingsStore;
     private readonly IMonitorRegistry monitorRegistry;
     private readonly IWallpaperService wallpaperService;
-    private readonly Func<IImagePicker> imagePickerFactory;
+    private readonly Func<WallpaperMonitorProfile, IImagePicker> imagePickerFactory;
     private readonly IFolderPicker folderPicker;
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
     private string? statusMessage;
@@ -28,7 +28,7 @@ public sealed class MainViewModel : ObservableObject
         ISettingsStore settingsStore,
         IMonitorRegistry monitorRegistry,
         IWallpaperService wallpaperService,
-        Func<IImagePicker> imagePickerFactory,
+        Func<WallpaperMonitorProfile, IImagePicker> imagePickerFactory,
         IFolderPicker folderPicker)
     {
         this.settingsStore = settingsStore;
@@ -61,10 +61,16 @@ public sealed class MainViewModel : ObservableObject
         foreach (var monitorId in monitorRegistry.GetConnectedMonitorIds())
         {
             savedProfilesById.TryGetValue(monitorId, out var profile);
-            var row = new MonitorRowViewModel(this, profile ?? new WallpaperMonitorProfile(monitorId), imagePickerFactory());
+            var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
+            var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
             row.ScheduleNextRun();
             Monitors.Add(row);
         }
+    }
+
+    public Task PersistAsync(CancellationToken cancellationToken = default)
+    {
+        return SaveAsync(cancellationToken);
     }
 
     private Task SaveAsync(CancellationToken cancellationToken = default)
@@ -254,7 +260,9 @@ public sealed class MonitorRowViewModel : ObservableObject
         {
             FolderPath = FolderPath,
             IntervalValue = IntervalValue,
-            IntervalUnit = IntervalUnit
+            IntervalUnit = IntervalUnit,
+            LastAppliedImage = imagePicker.LastPickedImage,
+            RemainingImages = imagePicker.RemainingImages
         };
     }
 }
