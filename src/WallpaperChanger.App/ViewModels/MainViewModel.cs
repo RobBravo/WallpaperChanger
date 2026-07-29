@@ -50,7 +50,16 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        var savedProfiles = await settingsStore.LoadAsync(cancellationToken);
+        IReadOnlyList<WallpaperMonitorProfile> savedProfiles;
+        try
+        {
+            savedProfiles = await settingsStore.LoadAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            savedProfiles = Array.Empty<WallpaperMonitorProfile>();
+            SetStatusMessage($"Wallpaper settings could not be loaded: {ex.Message}");
+        }
         savedProfilesById.Clear();
 
         foreach (var profile in savedProfiles)
@@ -60,12 +69,23 @@ public sealed class MainViewModel : ObservableObject
 
         Monitors.Clear();
 
-        foreach (var monitorId in monitorRegistry.GetConnectedMonitorIds())
+        IReadOnlyList<string> monitorIds;
+        try
+        {
+            monitorIds = monitorRegistry.GetConnectedMonitorIds();
+        }
+        catch (Exception ex)
+        {
+            monitorIds = Array.Empty<string>();
+            SetStatusMessage($"Wallpaper monitors could not be detected: {ex.Message}");
+        }
+
+        foreach (var monitorId in monitorIds)
         {
             savedProfilesById.TryGetValue(monitorId, out var profile);
             var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
             var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
-            if (rowProfile.NextRunAt is { } nextRunAt && !string.IsNullOrWhiteSpace(rowProfile.FolderPath) && Directory.Exists(rowProfile.FolderPath))
+            if (rowProfile.NextRunAt is { } nextRunAt && nextRunAt != DateTimeOffset.MaxValue && !string.IsNullOrWhiteSpace(rowProfile.FolderPath) && Directory.Exists(rowProfile.FolderPath))
             {
                 row.RestoreNextRun(nextRunAt);
             }
@@ -189,6 +209,7 @@ public sealed class MonitorRowViewModel : ObservableObject
 {
     private readonly MainViewModel owner;
     private readonly IImagePicker imagePicker;
+    private readonly SemaphoreSlim applyGate = new(1, 1);
     private string? folderPath;
     private int intervalValue;
     private string intervalUnit;
@@ -300,9 +321,18 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     private async Task ApplyNowAndRescheduleAsync()
     {
-        await owner.ApplyNowAsync(this);
-        ScheduleNextRun();
-        await owner.PersistAsync();
+        await applyGate.WaitAsync();
+
+        try
+        {
+            await owner.ApplyNowAsync(this);
+            ScheduleNextRun();
+            await owner.PersistAsync();
+        }
+        finally
+        {
+            applyGate.Release();
+        }
     }
 
     internal string PeekNextImage(IReadOnlyCollection<string> imagePaths)
