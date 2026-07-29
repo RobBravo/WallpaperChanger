@@ -13,7 +13,7 @@ public interface IFolderPicker
     string? PickFolder(string? initialFolder);
 }
 
-public sealed class MainViewModel
+public sealed class MainViewModel : ObservableObject
 {
     private readonly ISettingsStore settingsStore;
     private readonly IMonitorRegistry monitorRegistry;
@@ -21,6 +21,7 @@ public sealed class MainViewModel
     private readonly Func<IImagePicker> imagePickerFactory;
     private readonly IFolderPicker folderPicker;
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
+    private string? statusMessage;
 
     public MainViewModel(
         ISettingsStore settingsStore,
@@ -37,6 +38,12 @@ public sealed class MainViewModel
     }
 
     public ObservableCollection<MonitorRowViewModel> Monitors { get; } = new();
+
+    public string? StatusMessage
+    {
+        get => statusMessage;
+        private set => SetProperty(ref statusMessage, value);
+    }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -82,6 +89,11 @@ public sealed class MainViewModel
         {
             row.FolderPath = selectedFolder;
         }
+    }
+
+    internal void ReportError(Exception exception)
+    {
+        StatusMessage = exception.Message;
     }
 
     internal async Task ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
@@ -137,7 +149,7 @@ public sealed class MonitorRowViewModel : ObservableObject
         intervalUnit = profile.IntervalUnit;
 
         BrowseFolderCommand = new RelayCommand(() => owner.BrowseFolder(this));
-        ApplyNowCommand = new AsyncRelayCommand(() => owner.ApplyNowAsync(this));
+        ApplyNowCommand = new AsyncRelayCommand(() => owner.ApplyNowAsync(this), owner.ReportError);
     }
 
     public string MonitorId { get; }
@@ -229,10 +241,12 @@ public sealed class RelayCommand : ICommand
 public sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<Task> execute;
+    private readonly Action<Exception>? onError;
 
-    public AsyncRelayCommand(Func<Task> execute)
+    public AsyncRelayCommand(Func<Task> execute, Action<Exception>? onError = null)
     {
         this.execute = execute;
+        this.onError = onError;
     }
 
     public event EventHandler? CanExecuteChanged;
@@ -245,8 +259,9 @@ public sealed class AsyncRelayCommand : ICommand
         {
             await execute();
         }
-        catch
+        catch (Exception ex)
         {
+            onError?.Invoke(ex);
         }
     }
 }

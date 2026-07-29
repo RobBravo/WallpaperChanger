@@ -184,13 +184,17 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void AsyncRelayCommand_swallows_exceptions_from_the_delegate()
+    public void AsyncRelayCommand_reports_exceptions_from_the_delegate()
     {
-        var command = new AsyncRelayCommand(() => throw new InvalidOperationException("boom"));
+        string? reportedMessage = null;
+        var command = new AsyncRelayCommand(
+            () => throw new InvalidOperationException("boom"),
+            ex => reportedMessage = ex.Message);
 
         var exception = Record.Exception(() => command.Execute(null));
 
         Assert.Null(exception);
+        Assert.Equal("boom", reportedMessage);
     }
 
     private sealed class FakeSettingsStore : ISettingsStore

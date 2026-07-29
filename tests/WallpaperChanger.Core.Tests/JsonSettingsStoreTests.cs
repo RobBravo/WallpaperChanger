@@ -1,6 +1,7 @@
 using Xunit;
 using WallpaperChanger.Core.Models;
 using WallpaperChanger.Core.Services;
+using System.Text.Json;
 
 namespace WallpaperChanger.Core.Tests;
 
@@ -64,7 +65,7 @@ public class JsonSettingsStoreTests
     }
 
     [Fact]
-    public async Task Loads_empty_list_when_file_is_corrupted()
+    public async Task Throws_when_file_is_corrupted()
     {
         var path = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}.json");
         await File.WriteAllTextAsync(path, "{not-json");
@@ -72,9 +73,7 @@ public class JsonSettingsStoreTests
 
         try
         {
-            var loaded = await store.LoadAsync();
-
-            Assert.Empty(loaded);
+            await Assert.ThrowsAsync<JsonException>(() => store.LoadAsync());
         }
         finally
         {
