@@ -19,13 +19,21 @@ public sealed class DesktopWallpaper : IDesktopWallpaperGateway
 }
 
 [ComImport]
-[Guid("B92B56A9-8B55-4E14-9A89-0199BBB6F93B")]
+[Guid("B92B56A9-8B55-4E14-9A89-0199BBB6F93C")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IDesktopWallpaperCom
 {
     void SetWallpaper(
         [MarshalAs(UnmanagedType.LPWStr)] string monitorID,
         [MarshalAs(UnmanagedType.LPWStr)] string wallpaper);
+
+    void GetWallpaper(
+        [MarshalAs(UnmanagedType.LPWStr)] string monitorID,
+        [MarshalAs(UnmanagedType.LPWStr)] out string wallpaper);
+
+    void GetMonitorDevicePathAt(uint monitorIndex, [MarshalAs(UnmanagedType.LPWStr)] out string monitorDevicePath);
+
+    void GetMonitorDevicePathCount(out uint count);
 }
 
 [ComImport]

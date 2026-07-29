@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Win32;
 using WallpaperChanger.App.Interop;
 using WallpaperChanger.App.Services;
 using WallpaperChanger.App.ViewModels;
@@ -9,7 +10,9 @@ namespace WallpaperChanger.App;
 
 public partial class App : Application
 {
+    private MainViewModel? viewModel;
     private TrayIconService? trayIconService;
+    private WallpaperRotationService? rotationService;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -24,7 +27,7 @@ public partial class App : Application
             "WallpaperChanger",
             "settings.json");
 
-        var viewModel = new MainViewModel(
+        viewModel = new MainViewModel(
             new JsonSettingsStore(settingsPath),
             new WindowsMonitorRegistry(),
             new DesktopWallpaperService(new DesktopWallpaper()),
@@ -36,11 +39,14 @@ public partial class App : Application
             DataContext = viewModel
         };
         trayIconService = new TrayIconService(ShowMainWindow, ExitApplication);
-        MainWindow.Show();
+
+        rotationService = new WallpaperRotationService(viewModel, new SystemClock());
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
         try
         {
             await viewModel.InitializeAsync();
+            rotationService.Start();
         }
         catch (Exception ex)
         {
@@ -54,10 +60,34 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+
+        rotationService?.Dispose();
+        rotationService = null;
+
         trayIconService?.Dispose();
         trayIconService = null;
 
         base.OnExit(e);
+    }
+
+    private async void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var operation = Dispatcher.InvokeAsync(() => viewModel.InitializeAsync());
+            var initializeTask = await operation.Task;
+            await initializeTask;
+        }
+        catch (Exception ex)
+        {
+            viewModel.ReportError(ex);
+        }
     }
 
     private void ShowMainWindow()

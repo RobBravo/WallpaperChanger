@@ -21,7 +21,13 @@ public sealed class TrayIconService : IDisposable
             ContextMenuStrip = menu
         };
 
-        notifyIcon.DoubleClick += (_, _) => openWindow();
+        notifyIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                openWindow();
+            }
+        };
     }
 
     public void Dispose()

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using WallpaperChanger.Core.Abstractions;
 using WallpaperChanger.Core.Models;
+using WallpaperChanger.Core.Services;
 
 namespace WallpaperChanger.App.ViewModels;
 
@@ -60,7 +61,9 @@ public sealed class MainViewModel : ObservableObject
         foreach (var monitorId in monitorRegistry.GetConnectedMonitorIds())
         {
             savedProfilesById.TryGetValue(monitorId, out var profile);
-            Monitors.Add(new MonitorRowViewModel(this, profile ?? new WallpaperMonitorProfile(monitorId), imagePickerFactory()));
+            var row = new MonitorRowViewModel(this, profile ?? new WallpaperMonitorProfile(monitorId), imagePickerFactory());
+            row.ScheduleNextRun();
+            Monitors.Add(row);
         }
     }
 
@@ -91,6 +94,11 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    internal void Reschedule(MonitorRowViewModel row)
+    {
+        row.ScheduleNextRun();
+    }
+
     internal void ReportError(Exception exception)
     {
         StatusMessage = exception.Message;
@@ -102,6 +110,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
         {
+            StatusMessage = $"Folder not found for {row.MonitorId}.";
             return;
         }
 
@@ -112,11 +121,13 @@ public sealed class MainViewModel : ObservableObject
 
         if (imagePaths.Length == 0)
         {
+            StatusMessage = $"No images found in {row.FolderPath}.";
             return;
         }
 
         var chosenImage = row.PickNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
+        StatusMessage = $"Applied wallpaper for {row.MonitorId}.";
     }
 
     private static bool IsImageFile(string path)
@@ -149,7 +160,7 @@ public sealed class MonitorRowViewModel : ObservableObject
         intervalUnit = profile.IntervalUnit;
 
         BrowseFolderCommand = new RelayCommand(() => owner.BrowseFolder(this));
-        ApplyNowCommand = new AsyncRelayCommand(() => owner.ApplyNowAsync(this), owner.ReportError);
+        ApplyNowCommand = new AsyncRelayCommand(ApplyNowAsync, owner.ReportError);
     }
 
     public string MonitorId { get; }
@@ -157,19 +168,37 @@ public sealed class MonitorRowViewModel : ObservableObject
     public string? FolderPath
     {
         get => folderPath;
-        set => SetProperty(ref folderPath, value);
+        set
+        {
+            if (SetProperty(ref folderPath, value))
+            {
+                owner.Reschedule(this);
+            }
+        }
     }
 
     public int IntervalValue
     {
         get => intervalValue;
-        set => SetProperty(ref intervalValue, value);
+        set
+        {
+            if (SetProperty(ref intervalValue, value))
+            {
+                owner.Reschedule(this);
+            }
+        }
     }
 
     public string IntervalUnit
     {
         get => intervalUnit;
-        set => SetProperty(ref intervalUnit, value);
+        set
+        {
+            if (SetProperty(ref intervalUnit, value))
+            {
+                owner.Reschedule(this);
+            }
+        }
     }
 
     public IReadOnlyList<string> IntervalUnits { get; } = new[] { "minutes", "hours", "days" };
@@ -177,6 +206,14 @@ public sealed class MonitorRowViewModel : ObservableObject
     public ICommand BrowseFolderCommand { get; }
 
     public ICommand ApplyNowCommand { get; }
+
+    public DateTimeOffset NextRunAt
+    {
+        get => nextRunAt;
+        private set => SetProperty(ref nextRunAt, value);
+    }
+
+    private DateTimeOffset nextRunAt;
 
     public Task BrowseFolderAsync()
     {
@@ -186,7 +223,24 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     public Task ApplyNowAsync()
     {
-        return owner.ApplyNowAsync(this);
+        return ApplyNowAndRescheduleAsync();
+    }
+
+    public void ScheduleNextRun()
+    {
+        NextRunAt = WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile());
+    }
+
+    private async Task ApplyNowAndRescheduleAsync()
+    {
+        try
+        {
+            await owner.ApplyNowAsync(this);
+        }
+        finally
+        {
+            ScheduleNextRun();
+        }
     }
 
     internal string PickNextImage(IReadOnlyCollection<string> imagePaths)
