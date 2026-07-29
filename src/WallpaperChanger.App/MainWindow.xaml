@@ -1,9 +1,31 @@
 <Window x:Class="WallpaperChanger.App.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="WallpaperChanger"
-        Height="450"
-        Width="800">
-    <Grid>
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:views="clr-namespace:WallpaperChanger.App.Views"
+         Title="WallpaperChanger"
+         Height="450"
+         Width="900"
+         MinHeight="450"
+         MinWidth="720">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="WallpaperChanger" />
+            <TextBlock Margin="0,4,0,0" Foreground="#666" Text="Configure each connected monitor." />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Monitors}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <views:MonitorRowView />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </Window>
