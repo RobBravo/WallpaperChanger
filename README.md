@@ -25,6 +25,7 @@
 
 - Windows 11.
 - .NET SDK 8.0 o superior para compilar desde código fuente.
+- Visual Studio 2022 con la carga de trabajo **Desarrollo de escritorio con .NET**.
 - Una o más carpetas que contengan archivos `.jpg`, `.jpeg`, `.png` o `.bmp`.
 
 ## Instalación
@@ -33,8 +34,10 @@
 git clone https://github.com/RobBravo/WallpaperChanger.git
 Set-Location WallpaperChanger
 dotnet restore
-dotnet run
+dotnet build
 ```
+
+Abre `WallpaperChanger.sln` en Visual Studio 2022 y presiona **F5** para iniciar la aplicación.
 
 ## Configuración por monitor
 
