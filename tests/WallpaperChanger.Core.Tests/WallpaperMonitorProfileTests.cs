@@ -14,5 +14,7 @@ public class WallpaperMonitorProfileTests
         Assert.Equal(1, profile.IntervalValue);
         Assert.Equal("minutes", profile.IntervalUnit);
         Assert.Null(profile.FolderPath);
+        Assert.Null(profile.LastAppliedImage);
+        Assert.Empty(profile.RemainingImages);
     }
 }

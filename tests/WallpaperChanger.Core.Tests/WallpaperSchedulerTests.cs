@@ -20,4 +20,17 @@ public class WallpaperSchedulerTests
 
         Assert.Equal(new DateTimeOffset(2026, 7, 28, 10, 30, 0, TimeSpan.Zero), next);
     }
+
+    [Fact]
+    public void Rejects_non_positive_intervals()
+    {
+        var now = new DateTimeOffset(2026, 7, 28, 10, 0, 0, TimeSpan.Zero);
+        var profile = new WallpaperMonitorProfile("monitor-1")
+        {
+            IntervalValue = 0,
+            IntervalUnit = "minutes"
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => WallpaperScheduler.GetNextRun(now, profile));
+    }
 }

@@ -112,10 +112,9 @@ public sealed class MainViewModel : ObservableObject
 
     internal async Task ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
     {
-        await SaveAsync(cancellationToken);
-
         if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
         {
+            await SaveAsync(cancellationToken);
             StatusMessage = $"Folder not found for {row.MonitorId}.";
             return;
         }
@@ -127,12 +126,14 @@ public sealed class MainViewModel : ObservableObject
 
         if (imagePaths.Length == 0)
         {
+            await SaveAsync(cancellationToken);
             StatusMessage = $"No images found in {row.FolderPath}.";
             return;
         }
 
         var chosenImage = row.PickNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
+        await SaveAsync(cancellationToken);
         StatusMessage = $"Applied wallpaper for {row.MonitorId}.";
     }
 
@@ -188,6 +189,11 @@ public sealed class MonitorRowViewModel : ObservableObject
         get => intervalValue;
         set
         {
+            if (value < 1)
+            {
+                value = 1;
+            }
+
             if (SetProperty(ref intervalValue, value))
             {
                 owner.Reschedule(this);
@@ -234,6 +240,18 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     public void ScheduleNextRun()
     {
+        if (string.IsNullOrWhiteSpace(FolderPath))
+        {
+            NextRunAt = DateTimeOffset.MaxValue;
+            return;
+        }
+
+        if (IntervalValue < 1)
+        {
+            NextRunAt = DateTimeOffset.MaxValue;
+            return;
+        }
+
         NextRunAt = WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile());
     }
 

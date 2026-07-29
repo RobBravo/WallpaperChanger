@@ -8,6 +8,10 @@ public static class WallpaperScheduler
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentException.ThrowIfNullOrWhiteSpace(profile.IntervalUnit);
+        if (profile.IntervalValue <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(profile), "IntervalValue must be greater than zero.");
+        }
 
         return profile.IntervalUnit.Trim().ToLowerInvariant() switch
         {

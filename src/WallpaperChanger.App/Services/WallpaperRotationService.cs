@@ -9,6 +9,7 @@ public sealed class WallpaperRotationService : IDisposable
     private readonly MainViewModel viewModel;
     private readonly IClock clock;
     private readonly DispatcherTimer timer;
+    private bool isTickRunning;
 
     public WallpaperRotationService(MainViewModel viewModel, IClock clock)
     {
@@ -34,19 +35,33 @@ public sealed class WallpaperRotationService : IDisposable
 
     private async void OnTick(object? sender, EventArgs e)
     {
-        var now = clock.UtcNow;
-        var dueRows = viewModel.Monitors.Where(row => row.NextRunAt <= now).ToArray();
-
-        foreach (var row in dueRows)
+        if (isTickRunning)
         {
-            try
+            return;
+        }
+
+        isTickRunning = true;
+
+        try
+        {
+            var now = clock.UtcNow;
+            var dueRows = viewModel.Monitors.Where(row => row.NextRunAt <= now).ToArray();
+
+            foreach (var row in dueRows)
             {
-                await row.ApplyNowAsync();
+                try
+                {
+                    await row.ApplyNowAsync();
+                }
+                catch (Exception ex)
+                {
+                    viewModel.ReportError(ex);
+                }
             }
-            catch (Exception ex)
-            {
-                viewModel.ReportError(ex);
-            }
+        }
+        finally
+        {
+            isTickRunning = false;
         }
     }
 }
