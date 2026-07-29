@@ -66,6 +66,31 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_clamps_overflowing_intervals()
+    {
+        var settings = new FakeSettingsStore(
+            new[]
+            {
+                new WallpaperMonitorProfile("monitor-1")
+                {
+                    FolderPath = Path.GetTempPath(),
+                    IntervalValue = int.MaxValue,
+                    IntervalUnit = "days"
+                }
+            });
+        var registry = new FakeMonitorRegistry("monitor-1");
+        var wallpaper = new FakeWallpaperService();
+        var imagePicker = new FakeImagePicker();
+        var folderPicker = new FakeFolderPicker();
+
+        var vm = new MainViewModel(settings, registry, wallpaper, _ => imagePicker, folderPicker);
+
+        await vm.InitializeAsync();
+
+        Assert.Equal(DateTimeOffset.MaxValue, vm.Monitors[0].NextRunAt);
+    }
+
+    [Fact]
     public async Task BrowseFolderAsync_updates_the_selected_folder_path()
     {
         var settings = new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>());

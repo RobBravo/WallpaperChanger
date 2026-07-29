@@ -288,7 +288,14 @@ public sealed class MonitorRowViewModel : ObservableObject
             return;
         }
 
-        UpdateNextRunAt(WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile()));
+        try
+        {
+            UpdateNextRunAt(WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile()));
+        }
+        catch (ArgumentException)
+        {
+            UpdateNextRunAt(DateTimeOffset.MaxValue);
+        }
     }
 
     private async Task ApplyNowAndRescheduleAsync()
