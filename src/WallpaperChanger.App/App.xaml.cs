@@ -29,12 +29,23 @@ public partial class App : Application
             () => new ShuffleBagImagePicker(Random.Shared),
             new WindowsFolderPicker());
 
-        await viewModel.InitializeAsync();
-
         MainWindow = new MainWindow
         {
             DataContext = viewModel
         };
         MainWindow.Show();
+
+        try
+        {
+            await viewModel.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"WallpaperChanger could not load settings: {ex.Message}",
+                "WallpaperChanger",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 }

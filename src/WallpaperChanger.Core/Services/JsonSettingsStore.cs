@@ -25,9 +25,20 @@ public sealed class JsonSettingsStore : ISettingsStore
             return Array.Empty<WallpaperMonitorProfile>();
         }
 
-        await using var stream = File.OpenRead(_filePath);
-        return await JsonSerializer.DeserializeAsync<List<WallpaperMonitorProfile>>(stream, SerializerOptions, cancellationToken)
-            ?? Array.Empty<WallpaperMonitorProfile>();
+        try
+        {
+            await using var stream = File.OpenRead(_filePath);
+            return await JsonSerializer.DeserializeAsync<List<WallpaperMonitorProfile>>(stream, SerializerOptions, cancellationToken)
+                ?? Array.Empty<WallpaperMonitorProfile>();
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<WallpaperMonitorProfile>();
+        }
+        catch (IOException)
+        {
+            return Array.Empty<WallpaperMonitorProfile>();
+        }
     }
 
     public async Task SaveAsync(IReadOnlyCollection<WallpaperMonitorProfile> profiles, CancellationToken cancellationToken = default)

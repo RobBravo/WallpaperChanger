@@ -183,6 +183,16 @@ public class MainViewModelTests
         }
     }
 
+    [Fact]
+    public void AsyncRelayCommand_swallows_exceptions_from_the_delegate()
+    {
+        var command = new AsyncRelayCommand(() => throw new InvalidOperationException("boom"));
+
+        var exception = Record.Exception(() => command.Execute(null));
+
+        Assert.Null(exception);
+    }
+
     private sealed class FakeSettingsStore : ISettingsStore
     {
         private readonly IReadOnlyList<WallpaperMonitorProfile> loadedProfiles;
