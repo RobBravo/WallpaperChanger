@@ -26,7 +26,7 @@ public partial class App : Application
             new JsonSettingsStore(settingsPath),
             new WindowsMonitorRegistry(),
             new DesktopWallpaperService(new DesktopWallpaper()),
-            new ShuffleBagImagePicker(Random.Shared),
+            () => new ShuffleBagImagePicker(Random.Shared),
             new WindowsFolderPicker());
 
         await viewModel.InitializeAsync();

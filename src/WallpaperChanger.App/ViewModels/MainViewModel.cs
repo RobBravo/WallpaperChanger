@@ -18,20 +18,21 @@ public sealed class MainViewModel
     private readonly ISettingsStore settingsStore;
     private readonly IMonitorRegistry monitorRegistry;
     private readonly IWallpaperService wallpaperService;
-    private readonly IImagePicker imagePicker;
+    private readonly Func<IImagePicker> imagePickerFactory;
     private readonly IFolderPicker folderPicker;
+    private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
 
     public MainViewModel(
         ISettingsStore settingsStore,
         IMonitorRegistry monitorRegistry,
         IWallpaperService wallpaperService,
-        IImagePicker imagePicker,
+        Func<IImagePicker> imagePickerFactory,
         IFolderPicker folderPicker)
     {
         this.settingsStore = settingsStore;
         this.monitorRegistry = monitorRegistry;
         this.wallpaperService = wallpaperService;
-        this.imagePicker = imagePicker;
+        this.imagePickerFactory = imagePickerFactory;
         this.folderPicker = folderPicker;
     }
 
@@ -40,23 +41,38 @@ public sealed class MainViewModel
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         var savedProfiles = await settingsStore.LoadAsync(cancellationToken);
-        var profilesById = savedProfiles
-            .GroupBy(profile => profile.MonitorId)
-            .ToDictionary(group => group.Key, group => group.First());
+        savedProfilesById.Clear();
+
+        foreach (var profile in savedProfiles)
+        {
+            savedProfilesById[profile.MonitorId] = profile;
+        }
 
         Monitors.Clear();
 
         foreach (var monitorId in monitorRegistry.GetConnectedMonitorIds())
         {
-            profilesById.TryGetValue(monitorId, out var profile);
-            Monitors.Add(new MonitorRowViewModel(this, profile ?? new WallpaperMonitorProfile(monitorId)));
+            savedProfilesById.TryGetValue(monitorId, out var profile);
+            Monitors.Add(new MonitorRowViewModel(this, profile ?? new WallpaperMonitorProfile(monitorId), imagePickerFactory()));
         }
     }
 
     private Task SaveAsync(CancellationToken cancellationToken = default)
     {
-        var profiles = Monitors.Select(row => row.ToProfile()).ToArray();
-        return settingsStore.SaveAsync(profiles, cancellationToken);
+        var profilesById = new Dictionary<string, WallpaperMonitorProfile>(savedProfilesById, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in Monitors)
+        {
+            profilesById[row.MonitorId] = row.ToProfile();
+        }
+
+        savedProfilesById.Clear();
+        foreach (var pair in profilesById)
+        {
+            savedProfilesById[pair.Key] = pair.Value;
+        }
+
+        return settingsStore.SaveAsync(profilesById.Values.ToArray(), cancellationToken);
     }
 
     internal void BrowseFolder(MonitorRowViewModel row)
@@ -87,7 +103,7 @@ public sealed class MainViewModel
             return;
         }
 
-        var chosenImage = imagePicker.PickNext(imagePaths);
+        var chosenImage = row.PickNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
     }
 
@@ -106,13 +122,15 @@ public sealed class MainViewModel
 public sealed class MonitorRowViewModel : ObservableObject
 {
     private readonly MainViewModel owner;
+    private readonly IImagePicker imagePicker;
     private string? folderPath;
     private int intervalValue;
     private string intervalUnit;
 
-    public MonitorRowViewModel(MainViewModel owner, WallpaperMonitorProfile profile)
+    public MonitorRowViewModel(MainViewModel owner, WallpaperMonitorProfile profile, IImagePicker imagePicker)
     {
         this.owner = owner;
+        this.imagePicker = imagePicker;
         MonitorId = profile.MonitorId;
         folderPath = profile.FolderPath;
         intervalValue = profile.IntervalValue;
@@ -157,6 +175,11 @@ public sealed class MonitorRowViewModel : ObservableObject
     public Task ApplyNowAsync()
     {
         return owner.ApplyNowAsync(this);
+    }
+
+    internal string PickNextImage(IReadOnlyCollection<string> imagePaths)
+    {
+        return imagePicker.PickNext(imagePaths);
     }
 
     public WallpaperMonitorProfile ToProfile()

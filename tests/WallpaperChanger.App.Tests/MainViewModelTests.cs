@@ -25,7 +25,7 @@ public class MainViewModelTests
         var imagePicker = new FakeImagePicker();
         var folderPicker = new FakeFolderPicker();
 
-        var vm = new MainViewModel(settings, registry, wallpaper, imagePicker, folderPicker);
+        var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
 
         await vm.InitializeAsync();
 
@@ -49,7 +49,7 @@ public class MainViewModelTests
         var imagePicker = new FakeImagePicker();
         var folderPicker = new FakeFolderPicker { FolderToReturn = "C:/Wallpapers/Monitor1" };
 
-        var vm = new MainViewModel(settings, registry, wallpaper, imagePicker, folderPicker);
+        var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
 
         await vm.InitializeAsync();
 
@@ -76,7 +76,7 @@ public class MainViewModelTests
             var imagePicker = new FakeImagePicker { ImageToReturn = imagePath };
             var folderPicker = new FakeFolderPicker();
 
-            var vm = new MainViewModel(settings, registry, wallpaper, imagePicker, folderPicker);
+            var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
 
             await vm.InitializeAsync();
             vm.Monitors[0].FolderPath = folder;
@@ -93,6 +93,86 @@ public class MainViewModelTests
             Assert.Equal(("monitor-1", imagePath), wallpaper.LastCall);
             Assert.NotNull(imagePicker.LastImagePaths);
             Assert.Contains(imagePath, imagePicker.LastImagePaths!);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_creates_an_image_picker_per_monitor()
+    {
+        var settings = new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>());
+        var registry = new FakeMonitorRegistry("monitor-1", "monitor-2");
+        var wallpaper = new FakeWallpaperService();
+        var createdPickers = 0;
+        var folderPicker = new FakeFolderPicker();
+
+        var vm = new MainViewModel(
+            settings,
+            registry,
+            wallpaper,
+            () =>
+            {
+                createdPickers++;
+                return new FakeImagePicker();
+            },
+            folderPicker);
+
+        await vm.InitializeAsync();
+
+        Assert.Equal(2, createdPickers);
+    }
+
+    [Fact]
+    public async Task ApplyNowAsync_preserves_profiles_for_disconnected_monitors()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+
+        var imagePath = Path.Combine(folder, "chosen.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var settings = new FakeSettingsStore(
+                new[]
+                {
+                    new WallpaperMonitorProfile("monitor-1")
+                    {
+                        FolderPath = "C:/Connected",
+                        IntervalValue = 20,
+                        IntervalUnit = "minutes"
+                    },
+                    new WallpaperMonitorProfile("monitor-2")
+                    {
+                        FolderPath = "C:/Disconnected",
+                        IntervalValue = 45,
+                        IntervalUnit = "hours"
+                    }
+                });
+            var registry = new FakeMonitorRegistry("monitor-1");
+            var wallpaper = new FakeWallpaperService();
+            var imagePicker = new FakeImagePicker { ImageToReturn = imagePath };
+            var folderPicker = new FakeFolderPicker();
+
+            var vm = new MainViewModel(settings, registry, wallpaper, () => imagePicker, folderPicker);
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = folder;
+
+            await vm.Monitors[0].ApplyNowAsync();
+
+            Assert.NotNull(settings.SavedProfiles);
+            Assert.Equal(2, settings.SavedProfiles!.Count);
+            Assert.Contains(settings.SavedProfiles!, profile =>
+                profile.MonitorId == "monitor-1" && profile.FolderPath == folder && profile.IntervalValue == 20);
+            Assert.Contains(settings.SavedProfiles!, profile =>
+                profile.MonitorId == "monitor-2" && profile.FolderPath == "C:/Disconnected" && profile.IntervalValue == 45);
         }
         finally
         {
