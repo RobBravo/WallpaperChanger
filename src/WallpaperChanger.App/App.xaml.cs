@@ -13,6 +13,7 @@ public partial class App : Application
     private MainViewModel? viewModel;
     private TrayIconService? trayIconService;
     private WallpaperRotationService? rotationService;
+    private bool isRefreshingMonitors;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -89,6 +90,13 @@ public partial class App : Application
             return;
         }
 
+        if (isRefreshingMonitors)
+        {
+            return;
+        }
+
+        isRefreshingMonitors = true;
+
         try
         {
             await viewModel.PersistAsync();
@@ -99,6 +107,10 @@ public partial class App : Application
         catch (Exception ex)
         {
             viewModel.ReportError(ex);
+        }
+        finally
+        {
+            isRefreshingMonitors = false;
         }
     }
 

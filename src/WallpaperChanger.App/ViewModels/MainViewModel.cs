@@ -63,7 +63,7 @@ public sealed class MainViewModel : ObservableObject
             savedProfilesById.TryGetValue(monitorId, out var profile);
             var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
             var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
-            if (rowProfile.NextRunAt is { } nextRunAt)
+            if (rowProfile.NextRunAt is { } nextRunAt && !string.IsNullOrWhiteSpace(rowProfile.FolderPath) && Directory.Exists(rowProfile.FolderPath))
             {
                 row.RestoreNextRun(nextRunAt);
             }
@@ -141,7 +141,6 @@ public sealed class MainViewModel : ObservableObject
         var chosenImage = row.PeekNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
         row.ConsumeNextImage(imagePaths);
-        await SaveAsync(cancellationToken);
         StatusMessage = $"Applied wallpaper for {row.MonitorId}.";
     }
 
@@ -248,7 +247,7 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     public void ScheduleNextRun()
     {
-        if (string.IsNullOrWhiteSpace(FolderPath))
+        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
         {
             NextRunAt = DateTimeOffset.MaxValue;
             return;
