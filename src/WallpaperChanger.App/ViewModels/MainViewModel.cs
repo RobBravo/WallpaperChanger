@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows;
 using WallpaperChanger.Core.Abstractions;
 using WallpaperChanger.Core.Models;
 using WallpaperChanger.Core.Services;
@@ -22,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly Func<WallpaperMonitorProfile, IImagePicker> imagePickerFactory;
     private readonly IFolderPicker folderPicker;
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object stateLock = new();
     private string? statusMessage;
 
     public MainViewModel(
@@ -82,20 +84,36 @@ public sealed class MainViewModel : ObservableObject
 
     private Task SaveAsync(CancellationToken cancellationToken = default)
     {
-        var profilesById = new Dictionary<string, WallpaperMonitorProfile>(savedProfilesById, StringComparer.OrdinalIgnoreCase);
+        return SaveAsyncCore(cancellationToken);
+    }
 
-        foreach (var row in Monitors)
+    private async Task SaveAsyncCore(CancellationToken cancellationToken)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        var rows = dispatcher is null
+            ? Monitors.ToArray()
+            : await dispatcher.InvokeAsync(() => Monitors.ToArray());
+
+        IReadOnlyCollection<WallpaperMonitorProfile> profiles;
+        lock (stateLock)
         {
-            profilesById[row.MonitorId] = row.ToProfile();
+            var profilesById = new Dictionary<string, WallpaperMonitorProfile>(savedProfilesById, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var row in rows)
+            {
+                profilesById[row.MonitorId] = row.ToProfile();
+            }
+
+            savedProfilesById.Clear();
+            foreach (var pair in profilesById)
+            {
+                savedProfilesById[pair.Key] = pair.Value;
+            }
+
+            profiles = profilesById.Values.ToArray();
         }
 
-        savedProfilesById.Clear();
-        foreach (var pair in profilesById)
-        {
-            savedProfilesById[pair.Key] = pair.Value;
-        }
-
-        return settingsStore.SaveAsync(profilesById.Values.ToArray(), cancellationToken);
+        await settingsStore.SaveAsync(profiles, cancellationToken);
     }
 
     internal void BrowseFolder(MonitorRowViewModel row)
@@ -114,15 +132,15 @@ public sealed class MainViewModel : ObservableObject
 
     internal void ReportError(Exception exception)
     {
-        StatusMessage = exception.Message;
+        SetStatusMessage(exception.Message);
     }
 
     internal async Task ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
         {
-            await SaveAsync(cancellationToken);
-            StatusMessage = $"Folder not found for {row.MonitorId}.";
+            await SaveAsync(cancellationToken).ConfigureAwait(false);
+            SetStatusMessage($"Folder not found for {row.MonitorId}.");
             return;
         }
 
@@ -133,15 +151,28 @@ public sealed class MainViewModel : ObservableObject
 
         if (imagePaths.Length == 0)
         {
-            await SaveAsync(cancellationToken);
-            StatusMessage = $"No images found in {row.FolderPath}.";
+            await SaveAsync(cancellationToken).ConfigureAwait(false);
+            SetStatusMessage($"No images found in {row.FolderPath}.");
             return;
         }
 
         var chosenImage = row.PeekNextImage(imagePaths);
         await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
         row.ConsumeNextImage(imagePaths);
-        StatusMessage = $"Applied wallpaper for {row.MonitorId}.";
+        await SaveAsync(cancellationToken).ConfigureAwait(false);
+        SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
+    }
+
+    private void SetStatusMessage(string message)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            StatusMessage = message;
+            return;
+        }
+
+        dispatcher.Invoke(() => StatusMessage = message);
     }
 
     private static bool IsImageFile(string path)
@@ -150,9 +181,7 @@ public sealed class MainViewModel : ObservableObject
         return extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".gif", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+            || extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -249,17 +278,17 @@ public sealed class MonitorRowViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
         {
-            NextRunAt = DateTimeOffset.MaxValue;
+            UpdateNextRunAt(DateTimeOffset.MaxValue);
             return;
         }
 
         if (IntervalValue < 1)
         {
-            NextRunAt = DateTimeOffset.MaxValue;
+            UpdateNextRunAt(DateTimeOffset.MaxValue);
             return;
         }
 
-        NextRunAt = WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile());
+        UpdateNextRunAt(WallpaperScheduler.GetNextRun(DateTimeOffset.UtcNow, ToProfile()));
     }
 
     private async Task ApplyNowAndRescheduleAsync()
@@ -294,7 +323,19 @@ public sealed class MonitorRowViewModel : ObservableObject
 
     internal void RestoreNextRun(DateTimeOffset nextRunAt)
     {
-        NextRunAt = nextRunAt;
+        UpdateNextRunAt(nextRunAt);
+    }
+
+    private void UpdateNextRunAt(DateTimeOffset nextRunAt)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            NextRunAt = nextRunAt;
+            return;
+        }
+
+        dispatcher.Invoke(() => NextRunAt = nextRunAt);
     }
 }
 

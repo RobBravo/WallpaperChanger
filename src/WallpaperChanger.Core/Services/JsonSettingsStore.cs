@@ -38,7 +38,20 @@ public sealed class JsonSettingsStore : ISettingsStore
             Directory.CreateDirectory(directory);
         }
 
-        await using var stream = File.Create(_filePath);
-        await JsonSerializer.SerializeAsync(stream, profiles, SerializerOptions, cancellationToken);
+        var tempPath = Path.Combine(directory ?? Path.GetTempPath(), $"{Path.GetFileName(_filePath)}.{Guid.NewGuid():N}.tmp");
+
+        await using (var stream = File.Create(tempPath))
+        {
+            await JsonSerializer.SerializeAsync(stream, profiles, SerializerOptions, cancellationToken);
+        }
+
+        if (File.Exists(_filePath))
+        {
+            File.Replace(tempPath, _filePath, null);
+        }
+        else
+        {
+            File.Move(tempPath, _filePath);
+        }
     }
 }

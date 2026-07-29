@@ -33,6 +33,7 @@ public sealed class TrayIconService : IDisposable
     public void Dispose()
     {
         notifyIcon.Visible = false;
+        notifyIcon.ContextMenuStrip?.Dispose();
         notifyIcon.Dispose();
     }
 }

@@ -1,4 +1,4 @@
-using System.Windows.Threading;
+using System.Windows;
 using WallpaperChanger.App.ViewModels;
 using WallpaperChanger.Core.Abstractions;
 
@@ -8,60 +8,61 @@ public sealed class WallpaperRotationService : IDisposable
 {
     private readonly MainViewModel viewModel;
     private readonly IClock clock;
-    private readonly DispatcherTimer timer;
-    private bool isTickRunning;
+    private readonly CancellationTokenSource cancellationTokenSource = new();
+    private Task? loopTask;
 
     public WallpaperRotationService(MainViewModel viewModel, IClock clock)
     {
         this.viewModel = viewModel;
         this.clock = clock;
-        timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMinutes(1)
-        };
-        timer.Tick += OnTick;
     }
 
     public void Start()
     {
-        timer.Start();
+        loopTask ??= Task.Run(RunAsync);
     }
 
     public void Dispose()
     {
-        timer.Stop();
-        timer.Tick -= OnTick;
-    }
-
-    private async void OnTick(object? sender, EventArgs e)
-    {
-        if (isTickRunning)
+        cancellationTokenSource.Cancel();
+        try
         {
-            return;
+            loopTask?.Wait(TimeSpan.FromSeconds(2));
+        }
+        catch (AggregateException)
+        {
         }
 
-        isTickRunning = true;
+        cancellationTokenSource.Dispose();
+    }
+
+    private async Task RunAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
 
         try
         {
-            var now = clock.UtcNow;
-            var dueRows = viewModel.Monitors.Where(row => row.NextRunAt <= now).ToArray();
-
-            foreach (var row in dueRows)
+            while (await timer.WaitForNextTickAsync(cancellationTokenSource.Token))
             {
-                try
+                var now = clock.UtcNow;
+                var dueRows = await Application.Current.Dispatcher.InvokeAsync(() =>
+                    viewModel.Monitors.Where(row => row.NextRunAt <= now).ToArray()).Task;
+
+                foreach (var row in dueRows)
                 {
-                    await row.ApplyNowAsync();
-                }
-                catch (Exception ex)
-                {
-                    viewModel.ReportError(ex);
+                    try
+                    {
+                        await row.ApplyNowAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        viewModel.ReportError(ex);
+                    }
                 }
             }
         }
-        finally
+        catch (OperationCanceledException)
         {
-            isTickRunning = false;
         }
     }
 }
