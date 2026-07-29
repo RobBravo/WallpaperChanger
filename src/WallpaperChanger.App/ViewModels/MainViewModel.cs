@@ -25,6 +25,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
     private readonly object stateLock = new();
     private readonly SemaphoreSlim saveGate = new(1, 1);
+    private readonly SemaphoreSlim snapshotApplyGate = new(1, 1);
     private string? statusMessage;
 
     public MainViewModel(
@@ -193,13 +194,22 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var chosenImage = row.PeekNextImage(imagePaths);
-        var snapshot = Monitors
-            .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
-            .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
-        snapshot[row.MonitorId] = chosenImage;
+        await snapshotApplyGate.WaitAsync(cancellationToken);
+        try
+        {
+            var snapshot = Monitors
+                .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
+                .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
+            snapshot[row.MonitorId] = chosenImage;
 
-        await wallpaperService.ApplyAsync(snapshot, cancellationToken);
-        row.CurrentImagePath = chosenImage;
+            await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+            row.CurrentImagePath = chosenImage;
+        }
+        finally
+        {
+            snapshotApplyGate.Release();
+        }
+
         row.ConsumeNextImage(imagePaths);
         SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
         return true;

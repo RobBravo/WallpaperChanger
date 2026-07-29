@@ -326,6 +326,83 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task ApplyNowAsync_keeps_current_image_when_snapshot_apply_fails()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "chosen.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var vm = new MainViewModel(
+                new FakeSettingsStore(new[] { new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "old.jpg" } }),
+                new FakeMonitorRegistry("monitor-1"),
+                new ThrowingWallpaperService(),
+                _ => new FakeImagePicker { ImageToReturn = imagePath },
+                new FakeFolderPicker());
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = folder;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => vm.Monitors[0].ApplyNowAsync());
+
+            Assert.Equal("old.jpg", vm.Monitors[0].CurrentImagePath);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyNowAsync_serializes_snapshots_across_monitors()
+    {
+        var firstFolder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        var secondFolder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(firstFolder);
+        Directory.CreateDirectory(secondFolder);
+        var firstImage = Path.Combine(firstFolder, "one.jpg");
+        var secondImage = Path.Combine(secondFolder, "two.jpg");
+        await File.WriteAllTextAsync(firstImage, string.Empty);
+        await File.WriteAllTextAsync(secondImage, string.Empty);
+
+        try
+        {
+            var wallpaper = new CoordinatedWallpaperService();
+            var vm = new MainViewModel(
+                new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+                new FakeMonitorRegistry("monitor-1", "monitor-2"),
+                wallpaper,
+                profile => new FakeImagePicker
+                {
+                    ImageToReturn = profile.MonitorId == "monitor-1" ? firstImage : secondImage
+                },
+                new FakeFolderPicker());
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = firstFolder;
+            vm.Monitors[1].FolderPath = secondFolder;
+
+            var firstApply = vm.Monitors[0].ApplyNowAsync();
+            await wallpaper.FirstApplyStarted.Task;
+            var secondApply = vm.Monitors[1].ApplyNowAsync();
+            wallpaper.ReleaseFirstApply();
+            await wallpaper.SecondApplyStarted.Task;
+            wallpaper.ReleaseSecondApply();
+            await Task.WhenAll(firstApply, secondApply);
+
+            Assert.Equal(firstImage, wallpaper.LastSnapshot!["monitor-1"]);
+            Assert.Equal(secondImage, wallpaper.LastSnapshot["monitor-2"]);
+        }
+        finally
+        {
+            Directory.Delete(firstFolder, recursive: true);
+            Directory.Delete(secondFolder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task PersistAsync_saves_in_memory_edits_without_apply_now()
     {
         var settings = new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>());
@@ -411,6 +488,48 @@ public class MainViewModelTests
         {
             LastSnapshot = new Dictionary<string, string>(imagePathsByMonitorId);
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingWallpaperService : IWallpaperService
+    {
+        public Task ApplyAsync(IReadOnlyDictionary<string, string> imagePathsByMonitorId, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("apply failed");
+        }
+    }
+
+    private sealed class CoordinatedWallpaperService : IWallpaperService
+    {
+        private readonly TaskCompletionSource firstApplyStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource secondApplyStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource releaseFirstApply = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource releaseSecondApply = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int applyCount;
+
+        public TaskCompletionSource FirstApplyStarted => firstApplyStarted;
+
+        public TaskCompletionSource SecondApplyStarted => secondApplyStarted;
+
+        public IReadOnlyDictionary<string, string>? LastSnapshot { get; private set; }
+
+        public void ReleaseFirstApply() => releaseFirstApply.SetResult();
+
+        public void ReleaseSecondApply() => releaseSecondApply.SetResult();
+
+        public async Task ApplyAsync(IReadOnlyDictionary<string, string> imagePathsByMonitorId, CancellationToken cancellationToken = default)
+        {
+            LastSnapshot = new Dictionary<string, string>(imagePathsByMonitorId);
+
+            if (Interlocked.Increment(ref applyCount) == 1)
+            {
+                firstApplyStarted.SetResult();
+                await releaseFirstApply.Task;
+                return;
+            }
+
+            secondApplyStarted.SetResult();
+            await releaseSecondApply.Task;
         }
     }
 
