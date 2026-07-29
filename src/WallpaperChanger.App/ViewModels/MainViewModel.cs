@@ -75,19 +75,20 @@ public sealed class MainViewModel : ObservableObject
 
         Monitors.Clear();
 
-        IReadOnlyList<string> monitorIds;
+        IReadOnlyList<MonitorDescriptor> monitors;
         try
         {
-            monitorIds = monitorRegistry.GetConnectedMonitorIds();
+            monitors = monitorRegistry.GetConnectedMonitors();
         }
         catch (Exception ex)
         {
-            monitorIds = Array.Empty<string>();
+            monitors = Array.Empty<MonitorDescriptor>();
             SetStatusMessage($"Wallpaper monitors could not be detected: {ex.Message}");
         }
 
-        foreach (var monitorId in monitorIds)
+        foreach (var monitor in monitors)
         {
+            var monitorId = monitor.Id;
             savedProfilesById.TryGetValue(monitorId, out var profile);
             var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
             var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
@@ -192,7 +193,13 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var chosenImage = row.PeekNextImage(imagePaths);
-        await wallpaperService.SetWallpaperForMonitorAsync(row.MonitorId, chosenImage, cancellationToken);
+        var snapshot = Monitors
+            .Where(monitor => !string.IsNullOrWhiteSpace(monitor.CurrentImagePath))
+            .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
+        snapshot[row.MonitorId] = chosenImage;
+
+        await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+        row.CurrentImagePath = chosenImage;
         row.ConsumeNextImage(imagePaths);
         SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
         return true;
@@ -226,6 +233,7 @@ public sealed class MonitorRowViewModel : ObservableObject
     private readonly IImagePicker imagePicker;
     private readonly SemaphoreSlim applyGate = new(1, 1);
     private string? folderPath;
+    private string? currentImagePath;
     private int intervalValue;
     private string intervalUnit;
 
@@ -235,6 +243,7 @@ public sealed class MonitorRowViewModel : ObservableObject
         this.imagePicker = imagePicker;
         MonitorId = profile.MonitorId;
         folderPath = profile.FolderPath;
+        currentImagePath = profile.LastAppliedImage;
         intervalValue = profile.IntervalValue;
         intervalUnit = profile.IntervalUnit;
 
@@ -254,6 +263,12 @@ public sealed class MonitorRowViewModel : ObservableObject
                 owner.Reschedule(this);
             }
         }
+    }
+
+    public string? CurrentImagePath
+    {
+        get => currentImagePath;
+        internal set => SetProperty(ref currentImagePath, value);
     }
 
     public int IntervalValue
@@ -381,7 +396,7 @@ public sealed class MonitorRowViewModel : ObservableObject
             FolderPath = FolderPath,
             IntervalValue = IntervalValue,
             IntervalUnit = IntervalUnit,
-            LastAppliedImage = imagePicker.LastPickedImage,
+            LastAppliedImage = CurrentImagePath,
             RemainingImages = imagePicker.RemainingImages,
             NextRunAt = NextRunAt
         };

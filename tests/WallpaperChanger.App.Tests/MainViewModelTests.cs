@@ -17,7 +17,8 @@ public class MainViewModelTests
                 {
                     FolderPath = "C:/Wallpapers/Monitor2",
                     IntervalValue = 15,
-                    IntervalUnit = "hours"
+                    IntervalUnit = "hours",
+                    LastAppliedImage = "two.jpg"
                 }
             });
         var registry = new FakeMonitorRegistry("monitor-1", "monitor-2");
@@ -38,6 +39,27 @@ public class MainViewModelTests
         Assert.Equal("C:/Wallpapers/Monitor2", vm.Monitors[1].FolderPath);
         Assert.Equal(15, vm.Monitors[1].IntervalValue);
         Assert.Equal("hours", vm.Monitors[1].IntervalUnit);
+        Assert.Equal("two.jpg", vm.Monitors[1].CurrentImagePath);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_restores_last_applied_image_for_snapshot_composition()
+    {
+        var settings = new FakeSettingsStore(
+            new[]
+            {
+                new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "one.jpg" }
+            });
+        var vm = new MainViewModel(
+            settings,
+            new FakeMonitorRegistry("monitor-1"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+
+        Assert.Equal("one.jpg", vm.Monitors[0].CurrentImagePath);
     }
 
     [Fact]
@@ -173,7 +195,7 @@ public class MainViewModelTests
             Assert.Equal(folder, saved.FolderPath);
             Assert.Equal(20, saved.IntervalValue);
             Assert.Equal("minutes", saved.IntervalUnit);
-            Assert.Equal(("monitor-1", imagePath), wallpaper.LastCall);
+            Assert.Equal(imagePath, wallpaper.LastSnapshot!["monitor-1"]);
             Assert.NotNull(imagePicker.LastImagePaths);
             Assert.Contains(imagePath, imagePicker.LastImagePaths!);
         }
@@ -267,6 +289,43 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task ApplyNowAsync_preserves_other_monitor_images_in_snapshot()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "chosen.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var settings = new FakeSettingsStore(
+                new[]
+                {
+                    new WallpaperMonitorProfile("monitor-2") { LastAppliedImage = "two.jpg" }
+                });
+            var wallpaper = new FakeWallpaperService();
+            var vm = new MainViewModel(
+                settings,
+                new FakeMonitorRegistry("monitor-1", "monitor-2"),
+                wallpaper,
+                _ => new FakeImagePicker { ImageToReturn = imagePath },
+                new FakeFolderPicker());
+
+            await vm.InitializeAsync();
+            vm.Monitors[0].FolderPath = folder;
+
+            await vm.Monitors[0].ApplyNowAsync();
+
+            Assert.Equal(imagePath, wallpaper.LastSnapshot!["monitor-1"]);
+            Assert.Equal("two.jpg", wallpaper.LastSnapshot["monitor-2"]);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task PersistAsync_saves_in_memory_edits_without_apply_now()
     {
         var settings = new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>());
@@ -332,23 +391,25 @@ public class MainViewModelTests
 
     private sealed class FakeMonitorRegistry : IMonitorRegistry
     {
-        private readonly IReadOnlyList<string> monitorIds;
+        private readonly IReadOnlyList<MonitorDescriptor> monitors;
 
         public FakeMonitorRegistry(params string[] monitorIds)
         {
-            this.monitorIds = monitorIds;
+            monitors = monitorIds
+                .Select((monitorId, index) => new MonitorDescriptor(monitorId, monitorId, index, 0, 1, 1, index == 0))
+                .ToArray();
         }
 
-        public IReadOnlyList<string> GetConnectedMonitorIds() => monitorIds;
+        public IReadOnlyList<MonitorDescriptor> GetConnectedMonitors() => monitors;
     }
 
     private sealed class FakeWallpaperService : IWallpaperService
     {
-        public (string MonitorId, string ImagePath)? LastCall { get; private set; }
+        public IReadOnlyDictionary<string, string>? LastSnapshot { get; private set; }
 
-        public Task SetWallpaperForMonitorAsync(string monitorId, string imagePath, CancellationToken cancellationToken = default)
+        public Task ApplyAsync(IReadOnlyDictionary<string, string> imagePathsByMonitorId, CancellationToken cancellationToken = default)
         {
-            LastCall = (monitorId, imagePath);
+            LastSnapshot = new Dictionary<string, string>(imagePathsByMonitorId);
             return Task.CompletedTask;
         }
     }

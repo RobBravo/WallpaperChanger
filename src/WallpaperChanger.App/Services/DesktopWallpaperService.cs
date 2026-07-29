@@ -12,8 +12,12 @@ public sealed class DesktopWallpaperService : IWallpaperService
         this.wallpaperGateway = wallpaperGateway;
     }
 
-    public Task SetWallpaperForMonitorAsync(string monitorId, string imagePath, CancellationToken cancellationToken = default)
+    public async Task ApplyAsync(IReadOnlyDictionary<string, string> imagePathsByMonitorId, CancellationToken cancellationToken = default)
     {
-        return wallpaperGateway.SetWallpaperAsync(monitorId, imagePath);
+        foreach (var (monitorId, imagePath) in imagePathsByMonitorId)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await wallpaperGateway.SetWallpaperAsync(monitorId, imagePath);
+        }
     }
 }

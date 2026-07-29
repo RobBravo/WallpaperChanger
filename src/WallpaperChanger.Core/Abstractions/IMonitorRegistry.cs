@@ -1,6 +1,8 @@
+using WallpaperChanger.Core.Models;
+
 namespace WallpaperChanger.Core.Abstractions;
 
 public interface IMonitorRegistry
 {
-    IReadOnlyList<string> GetConnectedMonitorIds();
+    IReadOnlyList<MonitorDescriptor> GetConnectedMonitors();
 }

@@ -7,12 +7,16 @@ namespace WallpaperChanger.App.Tests;
 public class DesktopWallpaperServiceTests
 {
     [Fact]
-    public async Task Forwards_image_path_to_wallpaper_gateway()
+    public async Task Forwards_each_snapshot_image_to_wallpaper_gateway()
     {
         var gateway = new FakeWallpaperGateway();
         var service = new DesktopWallpaperService(gateway);
 
-        await service.SetWallpaperForMonitorAsync("\\\\?\\DISPLAY1", "C:\\Images\\a.jpg");
+        await service.ApplyAsync(
+            new Dictionary<string, string>
+            {
+                ["\\\\?\\DISPLAY1"] = "C:\\Images\\a.jpg"
+            });
 
         Assert.NotNull(gateway.LastCall);
         Assert.Equal(("\\\\?\\DISPLAY1", "C:\\Images\\a.jpg"), gateway.LastCall.Value);
