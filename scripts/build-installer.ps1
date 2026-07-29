@@ -19,6 +19,12 @@ if (-not (Test-Path -LiteralPath $compilerPath)) {
     throw "Inno Setup 6 was not found. Install it with: winget install --id JRSoftware.InnoSetup --exact"
 }
 
+if (Test-Path -LiteralPath $publishDirectory) {
+    Remove-Item -LiteralPath $publishDirectory -Recurse -Force
+}
+
+New-Item -ItemType Directory -Path $publishDirectory | Out-Null
+
 & dotnet publish $projectPath --configuration $Configuration --output $publishDirectory
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE."
