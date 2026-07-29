@@ -53,7 +53,7 @@ Cada monitor conserva su propia configuración, próxima ejecución y estado de 
 
 ## Persistencia e inicio automático
 
-La configuración se guarda por usuario en `%LocalAppData%\\WallpaperChanger\\settings.json`. El inicio automático se registra en la clave `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`, sin requerir privilegios de administrador.
+La configuración se guarda por usuario en `%LocalAppData%\WallpaperChanger\settings.json`. El inicio automático se registra en la clave `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, sin requerir privilegios de administrador.
 
 ## Arquitectura
 
