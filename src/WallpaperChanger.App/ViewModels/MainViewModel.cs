@@ -321,6 +321,8 @@ public sealed class MainViewModel : ObservableObject
             row.SetProposal(null, imagePaths.Length, $"{imagePaths.Length} images available for {row.MonitorId}.");
         }
 
+        SetVirtualMonitorProposal(row, null);
+
         if (reportStatus)
         {
             SetStatusMessage(row.ProposalStatus);

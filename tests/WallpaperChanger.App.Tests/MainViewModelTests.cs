@@ -585,11 +585,15 @@ public class MainViewModelTests
             Assert.True(row.CanApplyProposal);
 
             row.NewProposalCommand.Execute(null);
+            var virtualMonitor = vm.VirtualMonitors.Single();
+            Assert.NotNull(virtualMonitor.ProposedImagePath);
             row.FolderPath = emptyFolder;
 
             Assert.Equal(0, row.ImageCount);
             Assert.Null(row.ProposedImagePath);
             Assert.Null(row.ProposedImageFileName);
+            Assert.Null(virtualMonitor.ProposedImagePath);
+            Assert.Null(virtualMonitor.PreviewImagePath);
             Assert.Equal($"No images found in {emptyFolder}.", row.ProposalStatus);
             Assert.False(row.CanCreateProposal);
             Assert.False(row.CanApplyProposal);
