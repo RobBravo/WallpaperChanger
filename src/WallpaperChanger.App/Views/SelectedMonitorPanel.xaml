@@ -30,7 +30,18 @@
                 <Border Height="156" Margin="0,4,0,8" Background="#E2E8F0" CornerRadius="4">
                     <Grid>
                         <Image x:Name="ProposalPreview" Stretch="UniformToFill" />
-                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569" Text="No proposal thumbnail" />
+                        <TextBlock x:Name="ProposalFallback" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569" Text="No proposal thumbnail">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Source, ElementName=ProposalPreview}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Grid>
                 </Border>
                 <TextBlock Text="{Binding ProposedImageFileName, TargetNullValue=Create a proposal to preview an image}" TextTrimming="CharacterEllipsis" />

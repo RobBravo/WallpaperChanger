@@ -164,6 +164,7 @@ public sealed class MainViewModel : ObservableObject
             savedProfilesById.TryGetValue(monitorId, out var profile);
             var rowProfile = profile ?? new WallpaperMonitorProfile(monitorId);
             var row = new MonitorRowViewModel(this, rowProfile, imagePickerFactory(rowProfile));
+            RefreshFolderState(row, reportStatus: false);
             if (rowProfile.NextRunAt is { } nextRunAt && nextRunAt != DateTimeOffset.MaxValue && !string.IsNullOrWhiteSpace(rowProfile.FolderPath) && Directory.Exists(rowProfile.FolderPath))
             {
                 row.RestoreNextRun(nextRunAt);
@@ -305,6 +306,27 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    internal void RefreshFolderState(MonitorRowViewModel row, bool reportStatus = true)
+    {
+        if (!TryGetImagePaths(row.FolderPath, out var imagePaths))
+        {
+            row.SetProposal(null, 0, $"Folder not found for {row.MonitorId}.");
+        }
+        else if (imagePaths.Length == 0)
+        {
+            row.SetProposal(null, 0, $"No images found in {row.FolderPath}.");
+        }
+        else
+        {
+            row.SetProposal(null, imagePaths.Length, $"{imagePaths.Length} images available for {row.MonitorId}.");
+        }
+
+        if (reportStatus)
+        {
+            SetStatusMessage(row.ProposalStatus);
+        }
+    }
+
     private void NewProposalForSelectedMonitor()
     {
         if (SelectedVirtualMonitor is null)
@@ -323,20 +345,7 @@ public sealed class MainViewModel : ObservableObject
 
     internal void NewProposal(MonitorRowViewModel row)
     {
-        if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
-        {
-            row.SetProposal(null, 0, $"Folder not found for {row.MonitorId}.");
-            SetVirtualMonitorProposal(row, null);
-            SetStatusMessage(row.ProposalStatus);
-            return;
-        }
-
-        string[] imagePaths;
-        try
-        {
-            imagePaths = Directory.EnumerateFiles(row.FolderPath).Where(IsImageFile).ToArray();
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        if (!TryGetImagePaths(row.FolderPath, out var imagePaths))
         {
             row.SetProposal(null, 0, $"Folder not found for {row.MonitorId}.");
             SetVirtualMonitorProposal(row, null);
@@ -356,6 +365,25 @@ public sealed class MainViewModel : ObservableObject
         row.SetProposal(proposedImage, imagePaths.Length, $"Proposed {Path.GetFileName(proposedImage)} for {row.MonitorId}.");
         SetVirtualMonitorProposal(row, proposedImage);
         SetStatusMessage(row.ProposalStatus);
+    }
+
+    private static bool TryGetImagePaths(string? folderPath, out string[] imagePaths)
+    {
+        imagePaths = Array.Empty<string>();
+        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            imagePaths = Directory.EnumerateFiles(folderPath).Where(IsImageFile).ToArray();
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private void SetVirtualMonitorProposal(MonitorRowViewModel row, string? proposedImage)
@@ -488,16 +516,14 @@ public sealed class MonitorRowViewModel : ObservableObject
             if (SetProperty(ref folderPath, value))
             {
                 owner.Reschedule(this);
-                OnPropertyChanged(nameof(CanCreateProposal));
-                OnPropertyChanged(nameof(CanApplyProposal));
-                OnPropertyChanged(nameof(ProposalActionExplanation));
+                owner.RefreshFolderState(this);
             }
         }
     }
 
-    public bool CanCreateProposal => HasImageFiles();
+    public bool CanCreateProposal => ImageCount > 0;
 
-    public bool CanApplyProposal => HasImageFiles();
+    public bool CanApplyProposal => ImageCount > 0;
 
     public string ProposalActionExplanation => CanCreateProposal
         ? string.Empty
@@ -659,23 +685,9 @@ public sealed class MonitorRowViewModel : ObservableObject
         ProposedImageFileName = imagePath is null ? null : Path.GetFileName(imagePath);
         ImageCount = count;
         ProposalStatus = status;
-    }
-
-    private bool HasImageFiles()
-    {
-        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
-        {
-            return false;
-        }
-
-        try
-        {
-            return Directory.EnumerateFiles(FolderPath).Any(MainViewModel.IsImageFile);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        OnPropertyChanged(nameof(CanCreateProposal));
+        OnPropertyChanged(nameof(CanApplyProposal));
+        OnPropertyChanged(nameof(ProposalActionExplanation));
     }
 
     public WallpaperMonitorProfile ToProfile()

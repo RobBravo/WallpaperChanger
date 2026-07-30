@@ -100,6 +100,24 @@ public class MainWindowPresentationTests
     }
 
     [Fact]
+    public void Selected_monitor_panel_shows_the_thumbnail_fallback_only_when_no_thumbnail_is_loaded()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var panel = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "SelectedMonitorPanel.xaml"));
+        var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+        var x = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml");
+
+        var fallback = Assert.Single(
+            panel.Descendants(presentation + "TextBlock"),
+            element => element.Attribute(x + "Name")?.Value == "ProposalFallback");
+        var triggers = string.Concat(fallback.Descendants(presentation + "DataTrigger").Select(element => element.ToString()));
+
+        Assert.Contains("Source, ElementName=ProposalPreview", triggers);
+        Assert.Contains("{x:Null}", triggers);
+        Assert.Contains("Visibility", triggers);
+    }
+
+    [Fact]
     public void Monitor_canvas_binds_preview_to_the_view_model_preview_path()
     {
         var repositoryRoot = FindRepositoryRoot();

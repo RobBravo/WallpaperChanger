@@ -555,6 +555,52 @@ public class MainViewModelTests
         Assert.Equal("monitor-2", vm.SelectedMonitorRow?.MonitorId);
     }
 
+    [Fact]
+    public async Task Folder_edits_immediately_replace_the_selected_row_proposal_state()
+    {
+        var imageFolder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        var emptyFolder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(imageFolder);
+        Directory.CreateDirectory(emptyFolder);
+        await File.WriteAllTextAsync(Path.Combine(imageFolder, "proposal.jpg"), string.Empty);
+
+        try
+        {
+            var vm = new MainViewModel(
+                new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+                new FakeMonitorRegistry("monitor-1"),
+                new FakeWallpaperService(),
+                _ => new FakeImagePicker(),
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            var row = vm.Monitors.Single();
+
+            row.FolderPath = imageFolder;
+
+            Assert.Equal(1, row.ImageCount);
+            Assert.Null(row.ProposedImagePath);
+            Assert.Null(row.ProposedImageFileName);
+            Assert.Equal("1 images available for monitor-1.", row.ProposalStatus);
+            Assert.True(row.CanCreateProposal);
+            Assert.True(row.CanApplyProposal);
+
+            row.NewProposalCommand.Execute(null);
+            row.FolderPath = emptyFolder;
+
+            Assert.Equal(0, row.ImageCount);
+            Assert.Null(row.ProposedImagePath);
+            Assert.Null(row.ProposedImageFileName);
+            Assert.Equal($"No images found in {emptyFolder}.", row.ProposalStatus);
+            Assert.False(row.CanCreateProposal);
+            Assert.False(row.CanApplyProposal);
+        }
+        finally
+        {
+            Directory.Delete(imageFolder, recursive: true);
+            Directory.Delete(emptyFolder, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(null, "Folder not found for monitor-1.")]
     [InlineData("", "Folder not found for monitor-1.")]
