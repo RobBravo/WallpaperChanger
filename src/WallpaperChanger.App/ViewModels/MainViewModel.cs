@@ -28,6 +28,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly SemaphoreSlim snapshotApplyGate = new(1, 1);
     private string? statusMessage;
     private VirtualMonitorViewModel? selectedVirtualMonitor;
+    private MonitorRowViewModel? selectedMonitorRow;
 
     public MainViewModel(
         ISettingsStore settingsStore,
@@ -59,7 +60,14 @@ public sealed class MainViewModel : ObservableObject
             }
 
             SetProperty(ref selectedVirtualMonitor, value);
+            UpdateSelectedMonitorRow();
         }
+    }
+
+    public MonitorRowViewModel? SelectedMonitorRow
+    {
+        get => selectedMonitorRow;
+        private set => SetProperty(ref selectedMonitorRow, value);
     }
 
     public string? StatusMessage
@@ -166,6 +174,8 @@ public sealed class MainViewModel : ObservableObject
             }
             Monitors.Add(row);
         }
+
+        UpdateSelectedMonitorRow();
     }
 
     public ICommand NewProposalCommand { get; }
@@ -203,6 +213,14 @@ public sealed class MainViewModel : ObservableObject
         SelectedVirtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
             string.Equals(monitor.MonitorId, selectedMonitorId, StringComparison.OrdinalIgnoreCase))
             ?? VirtualMonitors[0];
+    }
+
+    private void UpdateSelectedMonitorRow()
+    {
+        SelectedMonitorRow = SelectedVirtualMonitor is null
+            ? null
+            : Monitors.FirstOrDefault(monitor =>
+                string.Equals(monitor.MonitorId, SelectedVirtualMonitor.MonitorId, StringComparison.OrdinalIgnoreCase));
     }
 
     public Task PersistAsync(CancellationToken cancellationToken = default)
@@ -421,7 +439,7 @@ public sealed class MainViewModel : ObservableObject
         dispatcher.Invoke(() => StatusMessage = message);
     }
 
-    private static bool IsImageFile(string path)
+    internal static bool IsImageFile(string path)
     {
         var extension = Path.GetExtension(path);
         return extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
@@ -470,9 +488,20 @@ public sealed class MonitorRowViewModel : ObservableObject
             if (SetProperty(ref folderPath, value))
             {
                 owner.Reschedule(this);
+                OnPropertyChanged(nameof(CanCreateProposal));
+                OnPropertyChanged(nameof(CanApplyProposal));
+                OnPropertyChanged(nameof(ProposalActionExplanation));
             }
         }
     }
+
+    public bool CanCreateProposal => HasImageFiles();
+
+    public bool CanApplyProposal => HasImageFiles();
+
+    public string ProposalActionExplanation => CanCreateProposal
+        ? string.Empty
+        : "Choose an existing folder containing at least one supported image.";
 
     public string? CurrentImagePath
     {
@@ -630,6 +659,23 @@ public sealed class MonitorRowViewModel : ObservableObject
         ProposedImageFileName = imagePath is null ? null : Path.GetFileName(imagePath);
         ImageCount = count;
         ProposalStatus = status;
+    }
+
+    private bool HasImageFiles()
+    {
+        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(FolderPath).Any(MainViewModel.IsImageFile);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public WallpaperMonitorProfile ToProfile()

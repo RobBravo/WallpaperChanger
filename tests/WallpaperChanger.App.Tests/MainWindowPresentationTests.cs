@@ -61,15 +61,42 @@ public class MainWindowPresentationTests
     public void Dashboard_exposes_proposal_controls_and_details()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var window = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "MainWindow.xaml")).ToString();
-        var row = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorRowView.xaml")).ToString();
+        var panel = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "SelectedMonitorPanel.xaml")).ToString();
         var canvas = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml")).ToString();
 
-        Assert.Contains("NewProposalCommand", window);
-        Assert.Contains("ImageCount", row);
-        Assert.Contains("ProposedImageFileName", row);
-        Assert.Contains("ProposalStatus", row);
+        Assert.Contains("NewProposalCommand", panel);
+        Assert.Contains("ImageCount", panel);
+        Assert.Contains("ProposedImageFileName", panel);
+        Assert.Contains("ProposalStatus", panel);
         Assert.Contains("PreviewImagePath", canvas);
+    }
+
+    [Fact]
+    public void Main_window_hosts_a_selected_monitor_panel_with_safe_proposal_controls()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var panelPath = Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "SelectedMonitorPanel.xaml");
+        var window = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "MainWindow.xaml")).ToString();
+
+        Assert.True(File.Exists(panelPath));
+
+        var panel = XDocument.Load(panelPath).ToString();
+
+        Assert.Contains("SelectedMonitorRow", window);
+        Assert.DoesNotContain("MonitorRowView", window);
+        Assert.Contains("FolderPath", panel);
+        Assert.Contains("BrowseFolderCommand", panel);
+        Assert.Contains("ImageCount", panel);
+        Assert.Contains("ProposedImageFileName", panel);
+        Assert.Contains("IntervalValue", panel);
+        Assert.Contains("NewProposalCommand", panel);
+        Assert.Contains("ApplyNowCommand", panel);
+        Assert.Contains("CanCreateProposal", panel);
+        Assert.Contains("CanApplyProposal", panel);
+        Assert.Contains("ProposalActionExplanation", panel);
+        var panelCodeBehind = File.ReadAllText(Path.ChangeExtension(panelPath, ".xaml.cs"));
+        Assert.Contains("BitmapCacheOption.OnLoad", panelCodeBehind);
+        Assert.Contains("BitmapCreateOptions.IgnoreImageCache", panelCodeBehind);
     }
 
     [Fact]

@@ -539,6 +539,22 @@ public class MainViewModelTests
         }
     }
 
+    [Fact]
+    public async Task Selected_monitor_row_tracks_the_monitor_selected_on_the_canvas()
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1", "monitor-2"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+        await vm.InitializeAsync();
+
+        vm.SelectedVirtualMonitor = vm.VirtualMonitors[1];
+
+        Assert.Equal("monitor-2", vm.SelectedMonitorRow?.MonitorId);
+    }
+
     [Theory]
     [InlineData(null, "Folder not found for monitor-1.")]
     [InlineData("", "Folder not found for monitor-1.")]
