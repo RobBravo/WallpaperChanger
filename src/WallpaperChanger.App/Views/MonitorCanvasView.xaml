@@ -2,32 +2,20 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:WallpaperChanger.App.Views">
-    <UserControl.Resources>
-        <local:NormalizedCoordinateConverter x:Key="NormalizedCoordinateConverter" />
-        <local:LayoutHeightConverter x:Key="LayoutHeightConverter" />
-    </UserControl.Resources>
-
     <Border Padding="16" Background="#F4F6F8" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8">
-        <Viewbox Stretch="Uniform">
-            <ListBox Width="1000"
-                     Height="{Binding LayoutAspectRatio, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource LayoutHeightConverter}}"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                     SelectedItem="{Binding SelectedMonitor, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+        <ListBox Background="Transparent"
+                 BorderThickness="0"
+                 ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                 SelectedItem="{Binding SelectedMonitor, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <Canvas />
+                        <local:MonitorLayoutPanel />
                     </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
-                        <Setter Property="Canvas.Left" Value="{Binding NormalizedLeft, Converter={StaticResource NormalizedCoordinateConverter}}" />
-                        <Setter Property="Canvas.Top" Value="{Binding NormalizedTop, Converter={StaticResource NormalizedCoordinateConverter}}" />
-                        <Setter Property="Width" Value="{Binding NormalizedWidth, Converter={StaticResource NormalizedCoordinateConverter}}" />
-                        <Setter Property="Height" Value="{Binding NormalizedHeight, Converter={StaticResource NormalizedCoordinateConverter}}" />
                         <Setter Property="Padding" Value="0" />
                         <Setter Property="BorderThickness" Value="0" />
                         <Setter Property="Background" Value="Transparent" />
@@ -59,7 +47,7 @@
                                 </Style>
                             </Border.Style>
                             <Grid>
-                                <Image Source="{Binding CurrentImagePath}" Stretch="UniformToFill">
+                                <Image Source="{Binding CurrentImagePath}" Stretch="UniformToFill" ImageFailed="PreviewImageFailed">
                                     <Image.Style>
                                         <Style TargetType="Image">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -71,7 +59,8 @@
                                         </Style>
                                     </Image.Style>
                                 </Image>
-                                <TextBlock HorizontalAlignment="Center"
+                                <TextBlock x:Name="PreviewFallback"
+                                           HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            Foreground="#475569"
                                            Text="No preview available">
@@ -107,7 +96,6 @@
                         </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
-            </ListBox>
-        </Viewbox>
+        </ListBox>
     </Border>
 </UserControl>

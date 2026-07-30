@@ -20,25 +20,41 @@ public class MainWindowPresentationTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var canvasPath = Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml");
+        var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
 
         Assert.True(File.Exists(canvasPath));
 
-        var canvas = XDocument.Load(canvasPath).ToString();
+        var canvas = XDocument.Load(canvasPath);
+        var canvasText = canvas.ToString();
         var window = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "MainWindow.xaml")).ToString();
 
-        Assert.Contains("ItemsSource=\"{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}\"", canvas);
-        Assert.Contains("NormalizedLeft", canvas);
-        Assert.Contains("NormalizedTop", canvas);
-        Assert.Contains("NormalizedWidth", canvas);
-        Assert.Contains("NormalizedHeight", canvas);
-        Assert.Contains("LayoutAspectRatio", canvas);
-        Assert.Contains("IsPortrait", canvas);
-        Assert.Contains("CurrentImagePath", canvas);
-        Assert.Contains("AutomationProperties.Name", canvas);
-        Assert.Contains("IsSelected", canvas);
-        Assert.Contains("BorderThickness", canvas);
+        Assert.Contains("ItemsSource=\"{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}\"", canvasText);
+        Assert.Empty(canvas.Descendants(presentation + "Viewbox"));
+        Assert.Single(canvas.Descendants(), element => element.Name.LocalName == "MonitorLayoutPanel");
+        Assert.Contains("IsPortrait", canvasText);
+        Assert.Contains("CurrentImagePath", canvasText);
+        Assert.Contains("AutomationProperties.Name", canvasText);
+        Assert.Contains("IsSelected", canvasText);
+        Assert.Contains("BorderThickness", canvasText);
         Assert.Contains("ItemsSource=\"{Binding VirtualMonitors}\"", window);
         Assert.Contains("SelectedMonitor=\"{Binding SelectedVirtualMonitor, Mode=TwoWay}\"", window);
+    }
+
+    [Fact]
+    public void Monitor_canvas_shows_its_empty_preview_message_when_image_loading_fails()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var canvas = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml"));
+        var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+        var x = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml");
+
+        var image = Assert.Single(canvas.Descendants(presentation + "Image"));
+        Assert.Equal("PreviewImageFailed", image.Attribute("ImageFailed")?.Value);
+
+        var fallback = Assert.Single(
+            canvas.Descendants(presentation + "TextBlock"),
+            element => element.Attribute(x + "Name")?.Value == "PreviewFallback");
+        Assert.Equal("No preview available", fallback.Attribute("Text")?.Value);
     }
 
     private static string FindRepositoryRoot()

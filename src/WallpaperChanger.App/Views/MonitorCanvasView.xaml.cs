@@ -1,9 +1,9 @@
 using System.Collections;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using WallpaperChanger.App.ViewModels;
+using WpfPanel = System.Windows.Controls.Panel;
+using WpfSize = System.Windows.Size;
 
 namespace WallpaperChanger.App.Views;
 
@@ -19,12 +19,6 @@ public partial class MonitorCanvasView : System.Windows.Controls.UserControl
         typeof(VirtualMonitorViewModel),
         typeof(MonitorCanvasView),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
-
-    public static readonly DependencyProperty LayoutAspectRatioProperty = DependencyProperty.Register(
-        nameof(LayoutAspectRatio),
-        typeof(double),
-        typeof(MonitorCanvasView),
-        new PropertyMetadata(1d));
 
     public MonitorCanvasView()
     {
@@ -43,35 +37,77 @@ public partial class MonitorCanvasView : System.Windows.Controls.UserControl
         set => SetValue(SelectedMonitorProperty, value);
     }
 
-    public double LayoutAspectRatio
+    private void PreviewImageFailed(object sender, ExceptionRoutedEventArgs e)
     {
-        get => (double)GetValue(LayoutAspectRatioProperty);
-        set => SetValue(LayoutAspectRatioProperty, value);
+        if (sender is not System.Windows.Controls.Image image || image.Parent is not Grid grid)
+        {
+            return;
+        }
+
+        image.Visibility = Visibility.Collapsed;
+        var fallback = grid.Children.OfType<TextBlock>().FirstOrDefault(child => child.Name == "PreviewFallback");
+        if (fallback is not null)
+        {
+            fallback.Visibility = Visibility.Visible;
+        }
+
+        e.Handled = true;
     }
 }
 
-public sealed class NormalizedCoordinateConverter : IValueConverter
+public sealed class MonitorLayoutPanel : WpfPanel
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    protected override WpfSize MeasureOverride(WpfSize availableSize)
     {
-        return value is double coordinate ? coordinate * 1000 : 0d;
+        foreach (UIElement child in InternalChildren)
+        {
+            child.Measure(availableSize);
+        }
+
+        return new WpfSize();
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    protected override WpfSize ArrangeOverride(WpfSize finalSize)
     {
-        throw new NotSupportedException();
+        foreach (UIElement child in InternalChildren)
+        {
+            if (child is FrameworkElement { DataContext: VirtualMonitorViewModel monitor })
+            {
+                child.Arrange(MonitorCanvasLayout.CalculateBounds(
+                    finalSize,
+                    monitor.LayoutAspectRatio,
+                    monitor.NormalizedLeft,
+                    monitor.NormalizedTop,
+                    monitor.NormalizedWidth,
+                    monitor.NormalizedHeight));
+            }
+        }
+
+        return finalSize;
     }
 }
 
-public sealed class LayoutHeightConverter : IValueConverter
+public static class MonitorCanvasLayout
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public static Rect CalculateBounds(
+        WpfSize availableSize,
+        double layoutAspectRatio,
+        double normalizedLeft,
+        double normalizedTop,
+        double normalizedWidth,
+        double normalizedHeight)
     {
-        return value is double aspectRatio && aspectRatio > 0 ? 1000 / aspectRatio : 1000d;
-    }
+        if (availableSize.Width <= 0 || availableSize.Height <= 0)
+        {
+            return Rect.Empty;
+        }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotSupportedException();
+        var aspectRatio = layoutAspectRatio > 0 ? layoutAspectRatio : 1d;
+        var layoutWidth = Math.Min(availableSize.Width, availableSize.Height * aspectRatio);
+        var layoutHeight = layoutWidth / aspectRatio;
+        var left = (availableSize.Width - layoutWidth) / 2 + normalizedLeft * layoutWidth;
+        var top = (availableSize.Height - layoutHeight) / 2 + normalizedTop * layoutHeight;
+
+        return new Rect(left, top, normalizedWidth * layoutWidth, normalizedHeight * layoutHeight);
     }
 }
