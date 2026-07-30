@@ -27,6 +27,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly SemaphoreSlim saveGate = new(1, 1);
     private readonly SemaphoreSlim snapshotApplyGate = new(1, 1);
     private string? statusMessage;
+    private VirtualMonitorViewModel? selectedVirtualMonitor;
 
     public MainViewModel(
         ISettingsStore settingsStore,
@@ -43,6 +44,22 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<MonitorRowViewModel> Monitors { get; } = new();
+
+    public ObservableCollection<VirtualMonitorViewModel> VirtualMonitors { get; } = new();
+
+    public VirtualMonitorViewModel? SelectedVirtualMonitor
+    {
+        get => selectedVirtualMonitor;
+        set
+        {
+            if (value is null && VirtualMonitors.Count > 0)
+            {
+                value = VirtualMonitors[0];
+            }
+
+            SetProperty(ref selectedVirtualMonitor, value);
+        }
+    }
 
     public string? StatusMessage
     {
@@ -94,6 +111,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task InitializeAsyncCore(CancellationToken cancellationToken)
     {
+        var selectedMonitorId = SelectedVirtualMonitor?.MonitorId;
         IReadOnlyList<WallpaperMonitorProfile> savedProfiles;
         try
         {
@@ -129,6 +147,8 @@ public sealed class MainViewModel : ObservableObject
             SetStatusMessage($"Wallpaper monitors could not be detected: {ex.Message}");
         }
 
+        UpdateVirtualMonitors(monitors, selectedMonitorId);
+
         foreach (var monitor in monitors)
         {
             var monitorId = monitor.Id;
@@ -145,6 +165,38 @@ public sealed class MainViewModel : ObservableObject
             }
             Monitors.Add(row);
         }
+    }
+
+    private void UpdateVirtualMonitors(IReadOnlyList<MonitorDescriptor> monitors, string? selectedMonitorId)
+    {
+        VirtualMonitors.Clear();
+
+        if (monitors.Count == 0)
+        {
+            SelectedVirtualMonitor = null;
+            return;
+        }
+
+        var left = monitors.Min(monitor => monitor.Left);
+        var top = monitors.Min(monitor => monitor.Top);
+        var right = monitors.Max(monitor => monitor.Left + monitor.Width);
+        var bottom = monitors.Max(monitor => monitor.Top + monitor.Height);
+        var width = right - left;
+        var height = bottom - top;
+
+        foreach (var monitor in monitors.OrderBy(monitor => monitor.Left).ThenBy(monitor => monitor.Top))
+        {
+            VirtualMonitors.Add(new VirtualMonitorViewModel(
+                monitor,
+                (double)(monitor.Left - left) / width,
+                (double)(monitor.Top - top) / height,
+                (double)monitor.Width / width,
+                (double)monitor.Height / height));
+        }
+
+        SelectedVirtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
+            string.Equals(monitor.MonitorId, selectedMonitorId, StringComparison.OrdinalIgnoreCase))
+            ?? VirtualMonitors[0];
     }
 
     public Task PersistAsync(CancellationToken cancellationToken = default)

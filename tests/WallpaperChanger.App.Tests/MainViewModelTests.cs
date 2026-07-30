@@ -43,6 +43,70 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_creates_virtual_monitors_with_normalized_bounds_and_orientation()
+    {
+        var registry = new FakeMonitorRegistry(
+            new MonitorDescriptor("portrait", "DISPLAY2", -1080, 0, 1080, 1920, false),
+            new MonitorDescriptor("primary", "DISPLAY1", 0, 0, 1920, 1080, true));
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            registry,
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+
+        Assert.Collection(
+            vm.VirtualMonitors,
+            portrait =>
+            {
+                Assert.Equal("portrait", portrait.MonitorId);
+                Assert.Equal(0, portrait.NormalizedLeft);
+                Assert.Equal(0, portrait.NormalizedTop);
+                Assert.Equal(1080d / 3000d, portrait.NormalizedWidth, 6);
+                Assert.Equal(1, portrait.NormalizedHeight);
+                Assert.True(portrait.IsPortrait);
+            },
+            primary =>
+            {
+                Assert.Equal("primary", primary.MonitorId);
+                Assert.Equal(1080d / 3000d, primary.NormalizedLeft, 6);
+                Assert.Equal(0, primary.NormalizedTop);
+                Assert.Equal(1920d / 3000d, primary.NormalizedWidth, 6);
+                Assert.Equal(1080d / 1920d, primary.NormalizedHeight, 6);
+                Assert.False(primary.IsPortrait);
+            });
+        Assert.Equal("portrait", vm.SelectedVirtualMonitor!.MonitorId);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_keeps_the_selected_virtual_monitor_when_its_id_is_still_connected()
+    {
+        var registry = new FakeMonitorRegistry(
+            new MonitorDescriptor("right", "DISPLAY3", 1920, 0, 1920, 1080, false),
+            new MonitorDescriptor("primary", "DISPLAY1", 0, 0, 1920, 1080, true));
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            registry,
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        vm.SelectedVirtualMonitor = vm.VirtualMonitors.Single(monitor => monitor.MonitorId == "right");
+
+        registry.SetConnectedMonitors(
+            new MonitorDescriptor("right", "DISPLAY3", 0, 0, 1080, 1920, false),
+            new MonitorDescriptor("primary", "DISPLAY1", 1080, 0, 1920, 1080, true));
+        await vm.RefreshAsync();
+
+        Assert.Equal(new[] { "right", "primary" }, vm.VirtualMonitors.Select(monitor => monitor.MonitorId));
+        Assert.Equal("right", vm.SelectedVirtualMonitor!.MonitorId);
+        Assert.True(vm.SelectedVirtualMonitor.IsPortrait);
+    }
+
+    [Fact]
     public async Task InitializeAsync_restores_last_applied_image_for_snapshot_composition()
     {
         var settings = new FakeSettingsStore(
@@ -626,11 +690,21 @@ public class MainViewModelTests
                 .ToArray();
         }
 
+        public FakeMonitorRegistry(params MonitorDescriptor[] monitors)
+        {
+            this.monitors = monitors;
+        }
+
         public void SetConnectedMonitors(params string[] monitorIds)
         {
             monitors = monitorIds
                 .Select((monitorId, index) => new MonitorDescriptor(monitorId, monitorId, index, 0, 1, 1, index == 0))
                 .ToArray();
+        }
+
+        public void SetConnectedMonitors(params MonitorDescriptor[] monitors)
+        {
+            this.monitors = monitors;
         }
 
         public IReadOnlyList<MonitorDescriptor> GetConnectedMonitors() => monitors;
