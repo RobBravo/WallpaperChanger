@@ -87,9 +87,9 @@ public sealed class CompositeWallpaperRendererTests : IDisposable
     [Fact]
     public void Render_preserves_physical_rectangles_for_a_mixed_scale_topology()
     {
-        var portraitImage = CreateSolidImage("portrait-physical.png", 1, 1, Color.Red);
-        var primaryImage = CreateSolidImage("primary-physical.png", 1, 1, Color.Lime);
-        var rightImage = CreateSolidImage("right-physical.png", 1, 1, Color.Blue);
+        var portraitImage = CreateSolidImage("portrait-physical.png", 100, 100, Color.Red);
+        var primaryImage = CreateSolidImage("primary-physical.png", 100, 100, Color.Lime);
+        var rightImage = CreateSolidImage("right-physical.png", 100, 100, Color.Blue);
         var monitors = new[]
         {
             new MonitorDescriptor("portrait", "DISPLAY2", -1080, 0, 1080, 1920, false),
