@@ -429,7 +429,8 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        var chosenImage = row.PeekNextImage(imagePaths);
+        var chosenImage = row.ProposedImagePath ?? row.PeekNextImage(imagePaths);
+        var isProposal = !string.IsNullOrWhiteSpace(row.ProposedImagePath);
         await snapshotApplyGate.WaitAsync(cancellationToken);
         try
         {
@@ -438,7 +439,16 @@ public sealed class MainViewModel : ObservableObject
                 .ToDictionary(monitor => monitor.MonitorId, monitor => monitor.CurrentImagePath!, StringComparer.OrdinalIgnoreCase);
             snapshot[row.MonitorId] = chosenImage;
 
-            await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+            try
+            {
+                await wallpaperService.ApplyAsync(snapshot, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                SetStatusMessage(exception.Message);
+                throw;
+            }
+
             row.CurrentImagePath = chosenImage;
             var virtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
                 string.Equals(monitor.MonitorId, row.MonitorId, StringComparison.OrdinalIgnoreCase));
@@ -446,14 +456,24 @@ public sealed class MainViewModel : ObservableObject
             {
                 virtualMonitor.CurrentImagePath = chosenImage;
             }
-            row.ConsumeNextImage(imagePaths);
+            if (isProposal)
+            {
+                row.SetProposal(null, imagePaths.Length, $"Applied {Path.GetFileName(chosenImage)} for {row.MonitorId}.");
+                SetVirtualMonitorProposal(row, null);
+            }
+            else
+            {
+                row.ConsumeNextImage(imagePaths);
+            }
         }
         finally
         {
             snapshotApplyGate.Release();
         }
 
-        SetStatusMessage($"Applied wallpaper for {row.MonitorId}.");
+        SetStatusMessage(isProposal
+            ? $"Applied {Path.GetFileName(chosenImage)} for {row.MonitorId}."
+            : $"Applied wallpaper for {row.MonitorId}.");
         return true;
     }
 

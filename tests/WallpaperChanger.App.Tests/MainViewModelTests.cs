@@ -676,6 +676,80 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task ApplyNowAsync_applies_the_selected_monitor_proposal_and_preserves_other_current_images()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var proposedImage = Path.Combine(folder, "proposed.jpg");
+        var pickerImage = Path.Combine(folder, "picker.jpg");
+        await File.WriteAllTextAsync(proposedImage, string.Empty);
+
+        try
+        {
+            var wallpaper = new FakeWallpaperService();
+            var vm = new MainViewModel(
+                new FakeSettingsStore(new[]
+                {
+                    new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "old.jpg" },
+                    new WallpaperMonitorProfile("monitor-2") { LastAppliedImage = "other.jpg" }
+                }),
+                new FakeMonitorRegistry("monitor-1", "monitor-2"),
+                wallpaper,
+                _ => new FakeImagePicker { ImageToReturn = pickerImage },
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            var row = vm.Monitors[0];
+            row.FolderPath = folder;
+            row.NewProposalCommand.Execute(null);
+
+            await row.ApplyNowAsync();
+
+            Assert.Equal(proposedImage, wallpaper.LastSnapshot!["monitor-1"]);
+            Assert.Equal("other.jpg", wallpaper.LastSnapshot["monitor-2"]);
+            Assert.Equal(proposedImage, row.CurrentImagePath);
+            Assert.Null(row.ProposedImagePath);
+            Assert.Equal("Applied proposed.jpg for monitor-1.", vm.StatusMessage);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyNowAsync_keeps_the_proposal_and_reports_the_error_when_applying_it_fails()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var proposedImage = Path.Combine(folder, "proposed.jpg");
+        await File.WriteAllTextAsync(proposedImage, string.Empty);
+
+        try
+        {
+            var vm = new MainViewModel(
+                new FakeSettingsStore(new[] { new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "old.jpg" } }),
+                new FakeMonitorRegistry("monitor-1"),
+                new ThrowingWallpaperService(),
+                _ => new FakeImagePicker(),
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            var row = vm.Monitors.Single();
+            row.FolderPath = folder;
+            row.NewProposalCommand.Execute(null);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => row.ApplyNowAsync());
+
+            Assert.Equal(proposedImage, row.ProposedImagePath);
+            Assert.Equal("old.jpg", row.CurrentImagePath);
+            Assert.Equal("apply failed", vm.StatusMessage);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyNowAsync_saves_rows_and_applies_the_picked_image()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
