@@ -130,6 +130,46 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAsync_never_exposes_a_stale_selection_during_virtual_monitor_rebuild()
+    {
+        var registry = new FakeMonitorRegistry("left", "right");
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            registry,
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        vm.VirtualMonitors.CollectionChanged += (_, _) =>
+            Assert.True(vm.SelectedVirtualMonitor is null || vm.VirtualMonitors.Contains(vm.SelectedVirtualMonitor));
+
+        registry.SetConnectedMonitors("right", "left");
+        await vm.RefreshAsync();
+    }
+
+    [Fact]
+    public async Task RefreshAsync_clears_selection_before_virtual_monitors_become_empty()
+    {
+        var registry = new FakeMonitorRegistry("monitor-1");
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            registry,
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        vm.VirtualMonitors.CollectionChanged += (_, _) =>
+            Assert.True(vm.SelectedVirtualMonitor is null || vm.VirtualMonitors.Contains(vm.SelectedVirtualMonitor));
+
+        registry.SetConnectedMonitors(Array.Empty<string>());
+        await vm.RefreshAsync();
+
+        Assert.Null(vm.SelectedVirtualMonitor);
+    }
+
+    [Fact]
     public async Task InitializeAsync_restores_last_applied_image_for_snapshot_composition()
     {
         var settings = new FakeSettingsStore(

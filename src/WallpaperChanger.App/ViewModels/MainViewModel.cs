@@ -169,11 +169,11 @@ public sealed class MainViewModel : ObservableObject
 
     private void UpdateVirtualMonitors(IReadOnlyList<MonitorDescriptor> monitors, string? selectedMonitorId)
     {
+        SetProperty(ref selectedVirtualMonitor, null, nameof(SelectedVirtualMonitor));
         VirtualMonitors.Clear();
 
         if (monitors.Count == 0)
         {
-            SelectedVirtualMonitor = null;
             return;
         }
 
