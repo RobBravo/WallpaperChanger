@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using WallpaperChanger.App.ViewModels;
 using WpfPanel = System.Windows.Controls.Panel;
 using WpfSize = System.Windows.Size;
@@ -19,6 +20,12 @@ public partial class MonitorCanvasView : System.Windows.Controls.UserControl
         typeof(VirtualMonitorViewModel),
         typeof(MonitorCanvasView),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    public static readonly DependencyProperty PreviewLoadFailedProperty = DependencyProperty.RegisterAttached(
+        "PreviewLoadFailed",
+        typeof(bool),
+        typeof(MonitorCanvasView),
+        new PropertyMetadata(false));
 
     public MonitorCanvasView()
     {
@@ -39,19 +46,33 @@ public partial class MonitorCanvasView : System.Windows.Controls.UserControl
 
     private void PreviewImageFailed(object sender, ExceptionRoutedEventArgs e)
     {
-        if (sender is not System.Windows.Controls.Image image || image.Parent is not Grid grid)
+        if (sender is not System.Windows.Controls.Image image)
         {
             return;
         }
 
-        image.Visibility = Visibility.Collapsed;
-        var fallback = grid.Children.OfType<TextBlock>().FirstOrDefault(child => child.Name == "PreviewFallback");
-        if (fallback is not null)
-        {
-            fallback.Visibility = Visibility.Visible;
-        }
-
+        MarkPreviewLoadFailed(image);
         e.Handled = true;
+    }
+
+    private void PreviewImageSourceUpdated(object sender, DataTransferEventArgs e)
+    {
+        ResetPreviewLoadFailed((DependencyObject)sender);
+    }
+
+    public static bool GetPreviewLoadFailed(DependencyObject target)
+    {
+        return (bool)target.GetValue(PreviewLoadFailedProperty);
+    }
+
+    public static void MarkPreviewLoadFailed(DependencyObject target)
+    {
+        target.SetValue(PreviewLoadFailedProperty, true);
+    }
+
+    public static void ResetPreviewLoadFailed(DependencyObject target)
+    {
+        target.SetValue(PreviewLoadFailedProperty, false);
     }
 }
 
