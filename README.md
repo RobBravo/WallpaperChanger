@@ -60,10 +60,14 @@ El instalador resultante se encuentra en `artifacts\installer\WallpaperChanger-S
 ## Configuración por monitor
 
 1. Abre la ventana desde el ícono de bandeja.
-2. Selecciona una carpeta para cada monitor conectado.
+2. Selecciona un monitor en el panel visual y configura su carpeta. La selección se recuerda en `%LocalAppData%\WallpaperChanger\ui-state.json` mientras el monitor siga conectado.
 3. Indica el intervalo y su unidad: minutos, horas o días.
 4. Pulsa **Aplicar ahora** para establecer una imagen de inmediato.
 5. Cierra la ventana; la aplicación sigue funcionando desde la bandeja.
+
+También puedes usar el teclado: presiona **Tab** para llevar el foco al panel de monitores, usa las flechas para cambiar de pantalla y **Entrar** o **Espacio** para seleccionar la pantalla enfocada. La tarjeta seleccionada muestra el texto **Selected**, además de su borde, para no depender solo del color.
+
+La posición y proporción de las tarjetas reproduce la disposición configurada en **Configuración de Windows > Sistema > Pantalla**. Ajusta allí el orden físico de los monitores si el tablero no coincide con tu escritorio.
 
 ## Cómo funciona
 
@@ -71,7 +75,7 @@ Cada monitor conserva su propia configuración, próxima ejecución y estado de 
 
 ## Persistencia e inicio automático
 
-La configuración se guarda por usuario en `%LocalAppData%\WallpaperChanger\settings.json`. El inicio automático se registra en la clave `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, sin requerir privilegios de administrador.
+La configuración de fondos se guarda por usuario en `%LocalAppData%\WallpaperChanger\settings.json`; la selección del tablero se guarda por separado en `%LocalAppData%\WallpaperChanger\ui-state.json`. El inicio automático se registra en la clave `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, sin requerir privilegios de administrador.
 
 ## Arquitectura
 

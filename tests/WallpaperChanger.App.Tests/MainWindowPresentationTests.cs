@@ -35,6 +35,9 @@ public class MainWindowPresentationTests
         Assert.Contains("PreviewImagePath", canvasText);
         Assert.Contains("AutomationProperties.Name", canvasText);
         Assert.Contains("IsSelected", canvasText);
+        Assert.Contains("IsKeyboardFocusWithin", canvasText);
+        Assert.Contains("KeyboardNavigation.DirectionalNavigation", canvasText);
+        Assert.Contains("Selected", canvasText);
         Assert.Contains("BorderThickness", canvasText);
         Assert.Contains("ItemsSource=\"{Binding VirtualMonitors}\"", window);
         Assert.Contains("SelectedMonitor=\"{Binding SelectedVirtualMonitor, Mode=TwoWay}\"", window);

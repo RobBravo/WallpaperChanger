@@ -6,7 +6,8 @@
         <ListBox Background="Transparent"
                  BorderThickness="0"
                  ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                 SelectedItem="{Binding SelectedMonitor, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+                  SelectedItem="{Binding SelectedMonitor, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+                  KeyboardNavigation.DirectionalNavigation="Cycle"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <ListBox.ItemsPanel>
@@ -19,7 +20,7 @@
                         <Setter Property="Padding" Value="0" />
                         <Setter Property="BorderThickness" Value="0" />
                         <Setter Property="Background" Value="Transparent" />
-                        <Setter Property="AutomationProperties.Name" Value="{Binding MonitorId, StringFormat=Monitor {0}}" />
+                         <Setter Property="AutomationProperties.Name" Value="{Binding MonitorId, StringFormat=Monitor {0}}" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
@@ -75,7 +76,7 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
-                                <Rectangle IsHitTestVisible="False" StrokeThickness="4">
+                                 <Rectangle IsHitTestVisible="False" StrokeThickness="4">
                                     <Rectangle.Style>
                                         <Style TargetType="Rectangle">
                                             <Setter Property="Stroke" Value="Transparent" />
@@ -86,10 +87,22 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Rectangle.Style>
-                                </Rectangle>
-                                <Border VerticalAlignment="Bottom" Background="#CC0F172A" Padding="8,4">
-                                    <StackPanel>
-                                        <TextBlock Foreground="White" FontWeight="SemiBold" Text="{Binding MonitorId}" />
+                                 </Rectangle>
+                                 <Rectangle IsHitTestVisible="False" Stroke="#111827" StrokeThickness="3" StrokeDashArray="2,2" Visibility="Collapsed">
+                                     <Rectangle.Style>
+                                         <Style TargetType="Rectangle">
+                                             <Setter Property="Visibility" Value="Collapsed" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                     <Setter Property="Visibility" Value="Visible" />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Rectangle.Style>
+                                 </Rectangle>
+                                 <Border VerticalAlignment="Bottom" Background="#CC0F172A" Padding="8,4">
+                                     <StackPanel>
+                                         <TextBlock Foreground="White" FontWeight="SemiBold" Text="{Binding MonitorId}" />
                                         <TextBlock Foreground="White">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -101,8 +114,20 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
+                                         </TextBlock>
+                                         <TextBlock FontWeight="Bold" Foreground="White" Text="Selected" Visibility="Collapsed">
+                                             <TextBlock.Style>
+                                                 <Style TargetType="TextBlock">
+                                                     <Setter Property="Visibility" Value="Collapsed" />
+                                                     <Style.Triggers>
+                                                         <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                             <Setter Property="Visibility" Value="Visible" />
+                                                         </DataTrigger>
+                                                     </Style.Triggers>
+                                                 </Style>
+                                             </TextBlock.Style>
+                                         </TextBlock>
+                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>

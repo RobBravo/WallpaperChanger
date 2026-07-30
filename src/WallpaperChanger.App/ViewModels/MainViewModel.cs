@@ -7,6 +7,7 @@ using System.Windows;
 using WallpaperChanger.Core.Abstractions;
 using WallpaperChanger.Core.Models;
 using WallpaperChanger.Core.Services;
+using WallpaperChanger.App.Services;
 
 namespace WallpaperChanger.App.ViewModels;
 
@@ -22,9 +23,11 @@ public sealed class MainViewModel : ObservableObject
     private readonly IWallpaperService wallpaperService;
     private readonly Func<WallpaperMonitorProfile, IImagePicker> imagePickerFactory;
     private readonly IFolderPicker folderPicker;
+    private readonly IUiStateStore? uiStateStore;
     private readonly Dictionary<string, WallpaperMonitorProfile> savedProfilesById = new(StringComparer.OrdinalIgnoreCase);
     private readonly object stateLock = new();
     private readonly SemaphoreSlim saveGate = new(1, 1);
+    private readonly SemaphoreSlim uiStateSaveGate = new(1, 1);
     private readonly SemaphoreSlim snapshotApplyGate = new(1, 1);
     private string? statusMessage;
     private VirtualMonitorViewModel? selectedVirtualMonitor;
@@ -35,13 +38,15 @@ public sealed class MainViewModel : ObservableObject
         IMonitorRegistry monitorRegistry,
         IWallpaperService wallpaperService,
         Func<WallpaperMonitorProfile, IImagePicker> imagePickerFactory,
-        IFolderPicker folderPicker)
+        IFolderPicker folderPicker,
+        IUiStateStore? uiStateStore = null)
     {
         this.settingsStore = settingsStore;
         this.monitorRegistry = monitorRegistry;
         this.wallpaperService = wallpaperService;
         this.imagePickerFactory = imagePickerFactory;
         this.folderPicker = folderPicker;
+        this.uiStateStore = uiStateStore;
         NewProposalCommand = new RelayCommand(NewProposalForSelectedMonitor);
     }
 
@@ -61,6 +66,10 @@ public sealed class MainViewModel : ObservableObject
 
             SetProperty(ref selectedVirtualMonitor, value);
             UpdateSelectedMonitorRow();
+            if (value is not null)
+            {
+                _ = SaveSelectedMonitorAsync();
+            }
         }
     }
 
@@ -121,6 +130,10 @@ public sealed class MainViewModel : ObservableObject
     private async Task InitializeAsyncCore(CancellationToken cancellationToken)
     {
         var selectedMonitorId = SelectedVirtualMonitor?.MonitorId;
+        if (selectedMonitorId is null && uiStateStore is not null)
+        {
+            selectedMonitorId = (await uiStateStore.LoadAsync(cancellationToken)).SelectedMonitorId;
+        }
         IReadOnlyList<WallpaperMonitorProfile> savedProfiles;
         try
         {
@@ -222,6 +235,28 @@ public sealed class MainViewModel : ObservableObject
             ? null
             : Monitors.FirstOrDefault(monitor =>
                 string.Equals(monitor.MonitorId, SelectedVirtualMonitor.MonitorId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task SaveSelectedMonitorAsync()
+    {
+        if (uiStateStore is null)
+        {
+            return;
+        }
+
+        await uiStateSaveGate.WaitAsync();
+        try
+        {
+            await uiStateStore.SaveAsync(new UiState(SelectedVirtualMonitor?.MonitorId));
+        }
+        catch (IOException)
+        {
+            // UI state must not prevent monitor selection when local storage is unavailable.
+        }
+        finally
+        {
+            uiStateSaveGate.Release();
+        }
     }
 
     public Task PersistAsync(CancellationToken cancellationToken = default)

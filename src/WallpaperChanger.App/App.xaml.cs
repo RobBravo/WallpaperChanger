@@ -41,6 +41,10 @@ public partial class App : System.Windows.Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "WallpaperChanger",
             "settings.json");
+        var uiStatePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WallpaperChanger",
+            "ui-state.json");
 
         var monitorRegistry = new WindowsMonitorRegistry();
         viewModel = new MainViewModel(
@@ -51,7 +55,8 @@ public partial class App : System.Windows.Application
                 new CompositeWallpaperRenderer(),
                 new SystemWallpaperGateway()),
             profile => new ShuffleBagImagePicker(Random.Shared, profile.RemainingImages),
-            new WindowsFolderPicker());
+            new WindowsFolderPicker(),
+            new JsonUiStateStore(uiStatePath));
 
         MainWindow = new MainWindow
         {

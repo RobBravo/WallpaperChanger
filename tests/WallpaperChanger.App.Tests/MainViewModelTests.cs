@@ -1,4 +1,5 @@
 using WallpaperChanger.App.ViewModels;
+using WallpaperChanger.App.Services;
 using WallpaperChanger.Core.Abstractions;
 using WallpaperChanger.Core.Models;
 using Xunit;
@@ -123,6 +124,77 @@ public class MainViewModelTests
         Assert.Equal(new[] { "right", "primary" }, vm.VirtualMonitors.Select(monitor => monitor.MonitorId));
         Assert.Equal("right", vm.SelectedVirtualMonitor!.MonitorId);
         Assert.True(vm.SelectedVirtualMonitor.IsPortrait);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_restores_a_saved_connected_monitor_selection()
+    {
+        var uiState = new FakeUiStateStore("monitor-2");
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1", "monitor-2"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker(),
+            uiState);
+
+        await vm.InitializeAsync();
+
+        Assert.Equal("monitor-2", vm.SelectedVirtualMonitor!.MonitorId);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_falls_back_to_the_first_monitor_when_the_saved_selection_is_disconnected()
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1", "monitor-2"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker(),
+            new FakeUiStateStore("missing-monitor"));
+
+        await vm.InitializeAsync();
+
+        Assert.Equal("monitor-1", vm.SelectedVirtualMonitor!.MonitorId);
+    }
+
+    [Fact]
+    public async Task Selecting_a_connected_monitor_persists_its_id_to_ui_state()
+    {
+        var uiState = new FakeUiStateStore(null);
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1", "monitor-2"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker(),
+            uiState);
+        await vm.InitializeAsync();
+
+        vm.SelectedVirtualMonitor = vm.VirtualMonitors[1];
+
+        Assert.Equal("monitor-2", uiState.SavedState!.SelectedMonitorId);
+    }
+
+    [Fact]
+    public async Task Selecting_a_monitor_while_an_earlier_ui_state_save_is_pending_preserves_the_latest_selection()
+    {
+        var uiState = new DelayedFirstSaveUiStateStore();
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1", "monitor-2"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker(),
+            uiState);
+        await vm.InitializeAsync();
+
+        vm.SelectedVirtualMonitor = vm.VirtualMonitors[1];
+        uiState.ReleaseFirstSave();
+        await uiState.SecondSaveCompleted.Task;
+
+        Assert.Equal("monitor-2", uiState.SavedState!.SelectedMonitorId);
     }
 
     [Fact]
@@ -1097,6 +1169,56 @@ public class MainViewModelTests
             SavedProfiles = profiles.ToArray();
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeUiStateStore : IUiStateStore
+    {
+        private readonly UiState loadedState;
+
+        public FakeUiStateStore(string? selectedMonitorId)
+        {
+            loadedState = new UiState(selectedMonitorId);
+        }
+
+        public UiState? SavedState { get; private set; }
+
+        public Task<UiState> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(loadedState);
+
+        public Task SaveAsync(UiState state, CancellationToken cancellationToken = default)
+        {
+            SavedState = state;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class DelayedFirstSaveUiStateStore : IUiStateStore
+    {
+        private readonly TaskCompletionSource releaseFirstSave = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int saveCount;
+
+        public UiState? SavedState { get; private set; }
+
+        public TaskCompletionSource FirstSaveCompleted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource SecondSaveCompleted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<UiState> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(new UiState(null));
+
+        public async Task SaveAsync(UiState state, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref saveCount) == 1)
+            {
+                await releaseFirstSave.Task;
+                SavedState = state;
+                FirstSaveCompleted.SetResult();
+                return;
+            }
+
+            SavedState = state;
+            SecondSaveCompleted.SetResult();
+        }
+
+        public void ReleaseFirstSave() => releaseFirstSave.SetResult();
     }
 
     private sealed class FakeMonitorRegistry : IMonitorRegistry
