@@ -3,6 +3,7 @@
          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
          xmlns:views="clr-namespace:WallpaperChanger.App.Views"
          Title="WallpaperChanger"
+         Icon="/Assets/WallpaperChanger.ico"
          Height="450"
          Width="900"
          MinHeight="450"
