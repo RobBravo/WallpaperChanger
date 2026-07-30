@@ -594,6 +594,22 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task NewProposalCommand_reports_when_no_monitor_is_connected()
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry(Array.Empty<string>()),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+        await vm.InitializeAsync();
+
+        vm.NewProposalCommand.Execute(null);
+
+        Assert.Equal("No monitor is available; connect a monitor and try again.", vm.StatusMessage);
+    }
+
+    [Fact]
     public async Task ApplyNowAsync_saves_rows_and_applies_the_picked_image()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");

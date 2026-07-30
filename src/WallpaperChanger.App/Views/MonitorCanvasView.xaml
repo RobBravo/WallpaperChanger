@@ -38,15 +38,20 @@
                                 CornerRadius="6">
                             <Grid>
                                 <Image x:Name="PreviewImage"
-                                        Source="{Binding ProposedImagePath, NotifyOnTargetUpdated=True}"
-                                       Stretch="UniformToFill"
-                                       ImageFailed="PreviewImageFailed"
-                                       TargetUpdated="PreviewImageSourceUpdated">
+                                        Stretch="UniformToFill"
+                                        ImageFailed="PreviewImageFailed"
+                                        TargetUpdated="PreviewImageSourceUpdated">
+                                    <Image.Source>
+                                        <PriorityBinding>
+                                            <Binding Path="ProposedImagePath" NotifyOnTargetUpdated="True" />
+                                            <Binding Path="CurrentImagePath" NotifyOnTargetUpdated="True" />
+                                        </PriorityBinding>
+                                    </Image.Source>
                                     <Image.Style>
                                         <Style TargetType="Image">
                                             <Setter Property="Visibility" Value="Visible" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ProposedImagePath}" Value="{x:Null}">
+                                                <DataTrigger Binding="{Binding Source, ElementName=PreviewImage}" Value="{x:Null}">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding (local:MonitorCanvasView.PreviewLoadFailed), ElementName=PreviewImage}" Value="True">
@@ -65,7 +70,7 @@
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ProposedImagePath}" Value="{x:Null}">
+                                                <DataTrigger Binding="{Binding Source, ElementName=PreviewImage}" Value="{x:Null}">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding (local:MonitorCanvasView.PreviewLoadFailed), ElementName=PreviewImage}" Value="True">

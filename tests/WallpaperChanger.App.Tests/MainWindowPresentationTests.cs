@@ -72,6 +72,20 @@ public class MainWindowPresentationTests
         Assert.Contains("ProposedImagePath", canvas);
     }
 
+    [Fact]
+    public void Monitor_canvas_prefers_proposals_and_falls_back_to_current_images()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var canvas = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml"));
+        var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+
+        var source = Assert.Single(canvas.Descendants(presentation + "PriorityBinding"));
+        var bindings = source.Descendants(presentation + "Binding").ToArray();
+
+        Assert.Equal("ProposedImagePath", bindings[0].Attribute("Path")?.Value);
+        Assert.Equal("CurrentImagePath", bindings[1].Attribute("Path")?.Value);
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

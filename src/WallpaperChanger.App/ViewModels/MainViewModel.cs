@@ -291,6 +291,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (SelectedVirtualMonitor is null)
         {
+            SetStatusMessage("No monitor is available; connect a monitor and try again.");
             return;
         }
 
