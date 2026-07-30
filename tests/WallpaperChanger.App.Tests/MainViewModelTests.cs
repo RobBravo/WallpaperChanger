@@ -66,6 +66,7 @@ public class MainViewModelTests
                 Assert.Equal(0, portrait.NormalizedTop);
                 Assert.Equal(1080d / 3000d, portrait.NormalizedWidth, 6);
                 Assert.Equal(1, portrait.NormalizedHeight);
+                Assert.Equal(3000d / 1920d, portrait.LayoutAspectRatio, 6);
                 Assert.True(portrait.IsPortrait);
             },
             primary =>
@@ -78,6 +79,24 @@ public class MainViewModelTests
                 Assert.False(primary.IsPortrait);
             });
         Assert.Equal("portrait", vm.SelectedVirtualMonitor!.MonitorId);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_exposes_the_saved_image_for_each_virtual_monitor_preview()
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(new[]
+            {
+                new WallpaperMonitorProfile("monitor-1") { LastAppliedImage = "preview.jpg" }
+            }),
+            new FakeMonitorRegistry("monitor-1"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+
+        Assert.Equal("preview.jpg", vm.VirtualMonitors.Single().CurrentImagePath);
     }
 
     [Fact]
@@ -474,6 +493,7 @@ public class MainViewModelTests
             Assert.Equal(imagePath, wallpaper.LastSnapshot!["monitor-1"]);
             Assert.NotNull(imagePicker.LastImagePaths);
             Assert.Contains(imagePath, imagePicker.LastImagePaths!);
+            Assert.Equal(imagePath, vm.VirtualMonitors.Single().CurrentImagePath);
         }
         finally
         {

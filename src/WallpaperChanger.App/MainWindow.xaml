@@ -21,15 +21,26 @@
             <TextBlock Margin="0,4,0,0" Foreground="#666" Text="Configure each connected monitor." />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Monitors}">
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*" />
+                <RowDefinition Height="3*" />
+            </Grid.RowDefinitions>
+
+            <views:MonitorCanvasView ItemsSource="{Binding VirtualMonitors}"
+                                     LayoutAspectRatio="{Binding SelectedVirtualMonitor.LayoutAspectRatio}"
+                                     SelectedMonitor="{Binding SelectedVirtualMonitor, Mode=TwoWay}" />
+
+            <ScrollViewer Grid.Row="1" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Monitors}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <views:MonitorRowView />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
 
         <TextBlock Grid.Row="2"
                    Margin="0,12,0,0"

@@ -186,12 +186,15 @@ public sealed class MainViewModel : ObservableObject
 
         foreach (var monitor in monitors.OrderBy(monitor => monitor.Left).ThenBy(monitor => monitor.Top))
         {
+            savedProfilesById.TryGetValue(monitor.Id, out var profile);
             VirtualMonitors.Add(new VirtualMonitorViewModel(
                 monitor,
                 (double)(monitor.Left - left) / width,
                 (double)(monitor.Top - top) / height,
                 (double)monitor.Width / width,
-                (double)monitor.Height / height));
+                (double)monitor.Height / height,
+                profile?.LastAppliedImage,
+                (double)width / height));
         }
 
         SelectedVirtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
@@ -322,6 +325,12 @@ public sealed class MainViewModel : ObservableObject
 
             await wallpaperService.ApplyAsync(snapshot, cancellationToken);
             row.CurrentImagePath = chosenImage;
+            var virtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
+                string.Equals(monitor.MonitorId, row.MonitorId, StringComparison.OrdinalIgnoreCase));
+            if (virtualMonitor is not null)
+            {
+                virtualMonitor.CurrentImagePath = chosenImage;
+            }
             row.ConsumeNextImage(imagePaths);
         }
         finally

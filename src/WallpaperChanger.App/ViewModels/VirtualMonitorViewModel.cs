@@ -2,14 +2,18 @@ using WallpaperChanger.Core.Models;
 
 namespace WallpaperChanger.App.ViewModels;
 
-public sealed class VirtualMonitorViewModel
+public sealed class VirtualMonitorViewModel : ObservableObject
 {
+    private string? currentImagePath;
+
     public VirtualMonitorViewModel(
         MonitorDescriptor monitor,
         double normalizedLeft,
         double normalizedTop,
         double normalizedWidth,
-        double normalizedHeight)
+        double normalizedHeight,
+        string? currentImagePath = null,
+        double layoutAspectRatio = 1)
     {
         MonitorId = monitor.Id;
         NormalizedLeft = normalizedLeft;
@@ -17,6 +21,8 @@ public sealed class VirtualMonitorViewModel
         NormalizedWidth = normalizedWidth;
         NormalizedHeight = normalizedHeight;
         IsPortrait = monitor.Height > monitor.Width;
+        this.currentImagePath = currentImagePath;
+        LayoutAspectRatio = layoutAspectRatio;
     }
 
     public string MonitorId { get; }
@@ -30,4 +36,12 @@ public sealed class VirtualMonitorViewModel
     public double NormalizedHeight { get; }
 
     public bool IsPortrait { get; }
+
+    public double LayoutAspectRatio { get; }
+
+    public string? CurrentImagePath
+    {
+        get => currentImagePath;
+        internal set => SetProperty(ref currentImagePath, value);
+    }
 }
