@@ -750,6 +750,52 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task ApplyIfDueAsync_uses_the_timer_candidate_and_retains_the_pending_proposal()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var timerImage = Path.Combine(folder, "timer.jpg");
+        await File.WriteAllTextAsync(Path.Combine(folder, "proposal.jpg"), string.Empty);
+        await File.WriteAllTextAsync(timerImage, string.Empty);
+
+        try
+        {
+            var wallpaper = new FakeWallpaperService();
+            var vm = new MainViewModel(
+                new FakeSettingsStore(new[]
+                {
+                    new WallpaperMonitorProfile("monitor-1")
+                    {
+                        FolderPath = folder,
+                        LastAppliedImage = "old.jpg",
+                        NextRunAt = DateTimeOffset.UtcNow.AddMinutes(-1)
+                    }
+                }),
+                new FakeMonitorRegistry("monitor-1"),
+                wallpaper,
+                _ => new FakeImagePicker { ImageToReturn = timerImage },
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            var row = vm.Monitors.Single();
+            row.NewProposalCommand.Execute(null);
+            var pendingProposal = row.ProposedImagePath;
+
+            var applyIfDue = typeof(MonitorRowViewModel).GetMethod(
+                "ApplyIfDueAsync",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            await (Task)applyIfDue!.Invoke(row, null)!;
+
+            Assert.Equal(timerImage, wallpaper.LastSnapshot!["monitor-1"]);
+            Assert.Equal(timerImage, row.CurrentImagePath);
+            Assert.Equal(pendingProposal, row.ProposedImagePath);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyNowAsync_saves_rows_and_applies_the_picked_image()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");

@@ -408,7 +408,10 @@ public sealed class MainViewModel : ObservableObject
         SetStatusMessage(exception.Message);
     }
 
-    internal async Task<bool> ApplyNowAsync(MonitorRowViewModel row, CancellationToken cancellationToken = default)
+    internal async Task<bool> ApplyNowAsync(
+        MonitorRowViewModel row,
+        bool useProposal = true,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
         {
@@ -429,8 +432,9 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        var chosenImage = row.ProposedImagePath ?? row.PeekNextImage(imagePaths);
-        var isProposal = !string.IsNullOrWhiteSpace(row.ProposedImagePath);
+        var proposedImage = useProposal ? row.ProposedImagePath : null;
+        var chosenImage = proposedImage ?? row.PeekNextImage(imagePaths);
+        var isProposal = !string.IsNullOrWhiteSpace(proposedImage);
         await snapshotApplyGate.WaitAsync(cancellationToken);
         try
         {
@@ -677,7 +681,7 @@ public sealed class MonitorRowViewModel : ObservableObject
                 return;
             }
 
-            var applied = await owner.ApplyNowAsync(this);
+            var applied = await owner.ApplyNowAsync(this, useProposal: !onlyIfDue);
             if (applied)
             {
                 ScheduleNextRun();
