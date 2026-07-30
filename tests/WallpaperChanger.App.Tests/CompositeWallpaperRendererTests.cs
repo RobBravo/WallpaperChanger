@@ -84,6 +84,36 @@ public sealed class CompositeWallpaperRendererTests : IDisposable
         Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(1, 0).ToArgb());
     }
 
+    [Fact]
+    public void Render_preserves_physical_rectangles_for_a_mixed_scale_topology()
+    {
+        var portraitImage = CreateSolidImage("portrait-physical.png", 1, 1, Color.Red);
+        var primaryImage = CreateSolidImage("primary-physical.png", 1, 1, Color.Lime);
+        var rightImage = CreateSolidImage("right-physical.png", 1, 1, Color.Blue);
+        var monitors = new[]
+        {
+            new MonitorDescriptor("portrait", "DISPLAY2", -1080, 0, 1080, 1920, false),
+            new MonitorDescriptor("primary", "DISPLAY1", 0, 0, 1920, 1080, true),
+            new MonitorDescriptor("right", "DISPLAY3", 1920, 0, 1920, 1080, false)
+        };
+
+        using var bitmap = new CompositeWallpaperRenderer().Render(
+            monitors,
+            new Dictionary<string, string>
+            {
+                ["portrait"] = portraitImage,
+                ["primary"] = primaryImage,
+                ["right"] = rightImage
+            });
+
+        Assert.Equal(4920, bitmap.Width);
+        Assert.Equal(1920, bitmap.Height);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(100, 1500).ToArgb());
+        Assert.Equal(Color.Lime.ToArgb(), bitmap.GetPixel(1100, 100).ToArgb());
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(3100, 100).ToArgb());
+        Assert.Equal(Color.Black.ToArgb(), bitmap.GetPixel(1100, 1500).ToArgb());
+    }
+
     public void Dispose()
     {
         Directory.Delete(temporaryDirectory, recursive: true);
