@@ -38,15 +38,10 @@
                                 CornerRadius="6">
                             <Grid>
                                 <Image x:Name="PreviewImage"
+                                        Source="{Binding PreviewImagePath, NotifyOnTargetUpdated=True}"
                                         Stretch="UniformToFill"
                                         ImageFailed="PreviewImageFailed"
                                         TargetUpdated="PreviewImageSourceUpdated">
-                                    <Image.Source>
-                                        <PriorityBinding>
-                                            <Binding Path="ProposedImagePath" NotifyOnTargetUpdated="True" />
-                                            <Binding Path="CurrentImagePath" NotifyOnTargetUpdated="True" />
-                                        </PriorityBinding>
-                                    </Image.Source>
                                     <Image.Style>
                                         <Style TargetType="Image">
                                             <Setter Property="Visibility" Value="Visible" />

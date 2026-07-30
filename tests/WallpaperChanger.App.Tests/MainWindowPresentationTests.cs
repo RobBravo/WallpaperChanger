@@ -32,7 +32,7 @@ public class MainWindowPresentationTests
         Assert.Empty(canvas.Descendants(presentation + "Viewbox"));
         Assert.Single(canvas.Descendants(), element => element.Name.LocalName == "MonitorLayoutPanel");
         Assert.Contains("IsPortrait", canvasText);
-        Assert.Contains("ProposedImagePath", canvasText);
+        Assert.Contains("PreviewImagePath", canvasText);
         Assert.Contains("AutomationProperties.Name", canvasText);
         Assert.Contains("IsSelected", canvasText);
         Assert.Contains("BorderThickness", canvasText);
@@ -69,21 +69,20 @@ public class MainWindowPresentationTests
         Assert.Contains("ImageCount", row);
         Assert.Contains("ProposedImageFileName", row);
         Assert.Contains("ProposalStatus", row);
-        Assert.Contains("ProposedImagePath", canvas);
+        Assert.Contains("PreviewImagePath", canvas);
     }
 
     [Fact]
-    public void Monitor_canvas_prefers_proposals_and_falls_back_to_current_images()
+    public void Monitor_canvas_binds_preview_to_the_view_model_preview_path()
     {
         var repositoryRoot = FindRepositoryRoot();
         var canvas = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml"));
         var presentation = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation");
 
-        var source = Assert.Single(canvas.Descendants(presentation + "PriorityBinding"));
-        var bindings = source.Descendants(presentation + "Binding").ToArray();
+        var image = Assert.Single(canvas.Descendants(presentation + "Image"));
 
-        Assert.Equal("ProposedImagePath", bindings[0].Attribute("Path")?.Value);
-        Assert.Equal("CurrentImagePath", bindings[1].Attribute("Path")?.Value);
+        Assert.Equal("{Binding PreviewImagePath, NotifyOnTargetUpdated=True}", image.Attribute("Source")?.Value);
+        Assert.Empty(canvas.Descendants(presentation + "PriorityBinding"));
     }
 
     private static string FindRepositoryRoot()

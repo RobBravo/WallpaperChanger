@@ -43,12 +43,26 @@ public sealed class VirtualMonitorViewModel : ObservableObject
     public string? CurrentImagePath
     {
         get => currentImagePath;
-        internal set => SetProperty(ref currentImagePath, value);
+        internal set
+        {
+            if (SetProperty(ref currentImagePath, value))
+            {
+                OnPropertyChanged(nameof(PreviewImagePath));
+            }
+        }
     }
 
     public string? ProposedImagePath
     {
         get => proposedImagePath;
-        internal set => SetProperty(ref proposedImagePath, value);
+        internal set
+        {
+            if (SetProperty(ref proposedImagePath, value))
+            {
+                OnPropertyChanged(nameof(PreviewImagePath));
+            }
+        }
     }
+
+    public string? PreviewImagePath => ProposedImagePath ?? CurrentImagePath;
 }
