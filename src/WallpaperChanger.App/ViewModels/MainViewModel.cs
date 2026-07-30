@@ -52,9 +52,9 @@ public sealed class MainViewModel : ObservableObject
         get => selectedVirtualMonitor;
         set
         {
-            if (value is null && VirtualMonitors.Count > 0)
+            if (value is null || !VirtualMonitors.Contains(value))
             {
-                value = VirtualMonitors[0];
+                value = VirtualMonitors.Count > 0 ? VirtualMonitors[0] : null;
             }
 
             SetProperty(ref selectedVirtualMonitor, value);

@@ -107,6 +107,29 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SelectedVirtualMonitor_replaces_an_external_monitor_with_the_first_current_monitor()
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry(
+                new MonitorDescriptor("left", "DISPLAY1", 0, 0, 1920, 1080, true),
+                new MonitorDescriptor("right", "DISPLAY2", 1920, 0, 1920, 1080, false)),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+
+        await vm.InitializeAsync();
+        vm.SelectedVirtualMonitor = new VirtualMonitorViewModel(
+            new MonitorDescriptor("stale", "DISPLAY3", 0, 0, 1, 1, false),
+            0,
+            0,
+            1,
+            1);
+
+        Assert.Same(vm.VirtualMonitors[0], vm.SelectedVirtualMonitor);
+    }
+
+    [Fact]
     public async Task InitializeAsync_restores_last_applied_image_for_snapshot_composition()
     {
         var settings = new FakeSettingsStore(
