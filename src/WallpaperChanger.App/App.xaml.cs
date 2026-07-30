@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using Microsoft.Win32;
 using WallpaperChanger.App.Services;
@@ -17,6 +18,8 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        SetThreadDpiAwarenessContext(new IntPtr(-4));
+
         base.OnStartup(e);
 
         var executablePath = Environment.ProcessPath ?? throw new InvalidOperationException("Unable to determine the application path.");
@@ -147,4 +150,7 @@ public partial class App : System.Windows.Application
 
         Shutdown();
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 }
