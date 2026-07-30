@@ -3,20 +3,19 @@ using Xunit;
 
 namespace WallpaperChanger.App.Tests;
 
-public class ApplicationManifestTests
+public class ApplicationHighDpiModeTests
 {
     [Fact]
-    public void Application_manifest_declares_per_monitor_v2_dpi_awareness()
+    public void Application_project_configures_per_monitor_v2_dpi_awareness()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var manifest = XDocument.Load(Path.Combine(
+        var project = XDocument.Load(Path.Combine(
             repositoryRoot,
             "src",
             "WallpaperChanger.App",
-            "app.manifest"));
-        var windowsSettings = XNamespace.Get("http://schemas.microsoft.com/SMI/2016/WindowsSettings");
+            "WallpaperChanger.App.csproj"));
 
-        Assert.Equal("PerMonitorV2", manifest.Descendants(windowsSettings + "dpiAwareness").Single().Value);
+        Assert.Equal("PerMonitorV2", project.Descendants("ApplicationHighDpiMode").Single().Value);
     }
 
     private static string FindRepositoryRoot()
