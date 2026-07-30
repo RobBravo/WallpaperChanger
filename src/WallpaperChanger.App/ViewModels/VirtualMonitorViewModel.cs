@@ -5,6 +5,7 @@ namespace WallpaperChanger.App.ViewModels;
 public sealed class VirtualMonitorViewModel : ObservableObject
 {
     private string? currentImagePath;
+    private string? proposedImagePath;
 
     public VirtualMonitorViewModel(
         MonitorDescriptor monitor,
@@ -43,5 +44,11 @@ public sealed class VirtualMonitorViewModel : ObservableObject
     {
         get => currentImagePath;
         internal set => SetProperty(ref currentImagePath, value);
+    }
+
+    public string? ProposedImagePath
+    {
+        get => proposedImagePath;
+        internal set => SetProperty(ref proposedImagePath, value);
     }
 }

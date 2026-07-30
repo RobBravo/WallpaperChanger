@@ -32,7 +32,7 @@ public class MainWindowPresentationTests
         Assert.Empty(canvas.Descendants(presentation + "Viewbox"));
         Assert.Single(canvas.Descendants(), element => element.Name.LocalName == "MonitorLayoutPanel");
         Assert.Contains("IsPortrait", canvasText);
-        Assert.Contains("CurrentImagePath", canvasText);
+        Assert.Contains("ProposedImagePath", canvasText);
         Assert.Contains("AutomationProperties.Name", canvasText);
         Assert.Contains("IsSelected", canvasText);
         Assert.Contains("BorderThickness", canvasText);
@@ -55,6 +55,21 @@ public class MainWindowPresentationTests
             canvas.Descendants(presentation + "TextBlock"),
             element => element.Attribute(x + "Name")?.Value == "PreviewFallback");
         Assert.Equal("No preview available", fallback.Attribute("Text")?.Value);
+    }
+
+    [Fact]
+    public void Dashboard_exposes_proposal_controls_and_details()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var window = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "MainWindow.xaml")).ToString();
+        var row = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorRowView.xaml")).ToString();
+        var canvas = XDocument.Load(Path.Combine(repositoryRoot, "src", "WallpaperChanger.App", "Views", "MonitorCanvasView.xaml")).ToString();
+
+        Assert.Contains("NewProposalCommand", window);
+        Assert.Contains("ImageCount", row);
+        Assert.Contains("ProposedImageFileName", row);
+        Assert.Contains("ProposalStatus", row);
+        Assert.Contains("ProposedImagePath", canvas);
     }
 
     private static string FindRepositoryRoot()

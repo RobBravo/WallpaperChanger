@@ -41,6 +41,7 @@ public sealed class MainViewModel : ObservableObject
         this.wallpaperService = wallpaperService;
         this.imagePickerFactory = imagePickerFactory;
         this.folderPicker = folderPicker;
+        NewProposalCommand = new RelayCommand(NewProposalForSelectedMonitor);
     }
 
     public ObservableCollection<MonitorRowViewModel> Monitors { get; } = new();
@@ -167,6 +168,8 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public ICommand NewProposalCommand { get; }
+
     private void UpdateVirtualMonitors(IReadOnlyList<MonitorDescriptor> monitors, string? selectedMonitorId)
     {
         SetProperty(ref selectedVirtualMonitor, null, nameof(SelectedVirtualMonitor));
@@ -280,6 +283,69 @@ public sealed class MainViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(selectedFolder))
         {
             row.FolderPath = selectedFolder;
+            NewProposal(row);
+        }
+    }
+
+    private void NewProposalForSelectedMonitor()
+    {
+        if (SelectedVirtualMonitor is null)
+        {
+            return;
+        }
+
+        var row = Monitors.FirstOrDefault(monitor =>
+            string.Equals(monitor.MonitorId, SelectedVirtualMonitor.MonitorId, StringComparison.OrdinalIgnoreCase));
+        if (row is not null)
+        {
+            NewProposal(row);
+        }
+    }
+
+    internal void NewProposal(MonitorRowViewModel row)
+    {
+        if (string.IsNullOrWhiteSpace(row.FolderPath) || !Directory.Exists(row.FolderPath))
+        {
+            row.SetProposal(null, 0, $"Folder not found for {row.MonitorId}.");
+            SetVirtualMonitorProposal(row, null);
+            SetStatusMessage(row.ProposalStatus);
+            return;
+        }
+
+        string[] imagePaths;
+        try
+        {
+            imagePaths = Directory.EnumerateFiles(row.FolderPath).Where(IsImageFile).ToArray();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            row.SetProposal(null, 0, $"Folder not found for {row.MonitorId}.");
+            SetVirtualMonitorProposal(row, null);
+            SetStatusMessage(row.ProposalStatus);
+            return;
+        }
+
+        if (imagePaths.Length == 0)
+        {
+            row.SetProposal(null, 0, $"No images found in {row.FolderPath}.");
+            SetVirtualMonitorProposal(row, null);
+            SetStatusMessage(row.ProposalStatus);
+            return;
+        }
+
+        var proposedImage = imagePaths[Random.Shared.Next(imagePaths.Length)];
+        row.SetProposal(proposedImage, imagePaths.Length, $"Proposed {Path.GetFileName(proposedImage)} for {row.MonitorId}.");
+        SetVirtualMonitorProposal(row, proposedImage);
+        SetStatusMessage(row.ProposalStatus);
+    }
+
+    private void SetVirtualMonitorProposal(MonitorRowViewModel row, string? proposedImage)
+    {
+        var virtualMonitor = VirtualMonitors.FirstOrDefault(monitor =>
+            string.Equals(monitor.MonitorId, row.MonitorId, StringComparison.OrdinalIgnoreCase));
+        if (virtualMonitor is not null)
+        {
+            virtualMonitor.ProposedImagePath = proposedImage;
         }
     }
 
@@ -371,6 +437,10 @@ public sealed class MonitorRowViewModel : ObservableObject
     private readonly SemaphoreSlim applyGate = new(1, 1);
     private string? folderPath;
     private string? currentImagePath;
+    private string? proposedImagePath;
+    private string? proposedImageFileName;
+    private string proposalStatus = string.Empty;
+    private int imageCount;
     private int intervalValue;
     private string intervalUnit;
 
@@ -385,6 +455,7 @@ public sealed class MonitorRowViewModel : ObservableObject
         intervalUnit = profile.IntervalUnit;
 
         BrowseFolderCommand = new RelayCommand(() => owner.BrowseFolder(this));
+        NewProposalCommand = new RelayCommand(() => owner.NewProposal(this));
         ApplyNowCommand = new AsyncRelayCommand(ApplyNowAsync, owner.ReportError);
     }
 
@@ -406,6 +477,30 @@ public sealed class MonitorRowViewModel : ObservableObject
     {
         get => currentImagePath;
         internal set => SetProperty(ref currentImagePath, value);
+    }
+
+    public string? ProposedImagePath
+    {
+        get => proposedImagePath;
+        private set => SetProperty(ref proposedImagePath, value);
+    }
+
+    public string? ProposedImageFileName
+    {
+        get => proposedImageFileName;
+        private set => SetProperty(ref proposedImageFileName, value);
+    }
+
+    public string ProposalStatus
+    {
+        get => proposalStatus;
+        private set => SetProperty(ref proposalStatus, value);
+    }
+
+    public int ImageCount
+    {
+        get => imageCount;
+        private set => SetProperty(ref imageCount, value);
     }
 
     public int IntervalValue
@@ -440,6 +535,8 @@ public sealed class MonitorRowViewModel : ObservableObject
     public IReadOnlyList<string> IntervalUnits { get; } = new[] { "minutes", "hours", "days" };
 
     public ICommand BrowseFolderCommand { get; }
+
+    public ICommand NewProposalCommand { get; }
 
     public ICommand ApplyNowCommand { get; }
 
@@ -524,6 +621,14 @@ public sealed class MonitorRowViewModel : ObservableObject
     internal void ConsumeNextImage(IReadOnlyCollection<string> imagePaths)
     {
         imagePicker.PickNext(imagePaths);
+    }
+
+    internal void SetProposal(string? imagePath, int count, string status)
+    {
+        ProposedImagePath = imagePath;
+        ProposedImageFileName = imagePath is null ? null : Path.GetFileName(imagePath);
+        ImageCount = count;
+        ProposalStatus = status;
     }
 
     public WallpaperMonitorProfile ToProfile()

@@ -459,6 +459,141 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void Monitor_row_exposes_proposal_state_and_command()
+    {
+        var rowType = typeof(MonitorRowViewModel);
+
+        Assert.NotNull(rowType.GetProperty("ProposedImagePath"));
+        Assert.NotNull(rowType.GetProperty("ImageCount"));
+        Assert.NotNull(rowType.GetProperty("ProposedImageFileName"));
+        Assert.NotNull(rowType.GetProperty("ProposalStatus"));
+        Assert.NotNull(rowType.GetProperty("NewProposalCommand"));
+        Assert.NotNull(typeof(MainViewModel).GetProperty("NewProposalCommand"));
+    }
+
+    [Fact]
+    public async Task BrowseFolderAsync_generates_a_proposal_without_applying_wallpaper()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "proposed.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var wallpaper = new FakeWallpaperService();
+            var vm = new MainViewModel(
+                new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+                new FakeMonitorRegistry("monitor-1"),
+                wallpaper,
+                _ => new FakeImagePicker { ImageToReturn = imagePath },
+                new FakeFolderPicker { FolderToReturn = folder });
+            await vm.InitializeAsync();
+
+            await vm.Monitors.Single().BrowseFolderAsync();
+
+            var row = vm.Monitors.Single();
+            Assert.Equal(imagePath, row.ProposedImagePath);
+            Assert.Equal("proposed.jpg", row.ProposedImageFileName);
+            Assert.Equal(1, row.ImageCount);
+            Assert.Equal("Proposed proposed.jpg for monitor-1.", row.ProposalStatus);
+            Assert.Equal(row.ProposalStatus, vm.StatusMessage);
+            Assert.Equal(imagePath, vm.VirtualMonitors.Single().ProposedImagePath);
+            Assert.Equal(0, wallpaper.ApplyCount);
+            Assert.Null(row.CurrentImagePath);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task NewProposalCommand_uses_the_selected_monitor()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "second.jpg");
+        await File.WriteAllTextAsync(imagePath, string.Empty);
+
+        try
+        {
+            var vm = new MainViewModel(
+                new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+                new FakeMonitorRegistry("monitor-1", "monitor-2"),
+                new FakeWallpaperService(),
+                _ => new FakeImagePicker { ImageToReturn = imagePath },
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            vm.Monitors[1].FolderPath = folder;
+            vm.SelectedVirtualMonitor = vm.VirtualMonitors[1];
+
+            vm.NewProposalCommand.Execute(null);
+
+            Assert.Null(vm.Monitors[0].ProposedImagePath);
+            Assert.Equal(imagePath, vm.Monitors[1].ProposedImagePath);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(null, "Folder not found for monitor-1.")]
+    [InlineData("", "Folder not found for monitor-1.")]
+    public async Task NewProposalCommand_reports_missing_folders(string? folder, string expectedStatus)
+    {
+        var vm = new MainViewModel(
+            new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+            new FakeMonitorRegistry("monitor-1"),
+            new FakeWallpaperService(),
+            _ => new FakeImagePicker(),
+            new FakeFolderPicker());
+        await vm.InitializeAsync();
+        vm.Monitors.Single().FolderPath = folder;
+
+        vm.NewProposalCommand.Execute(null);
+
+        var row = vm.Monitors.Single();
+        Assert.Equal(0, row.ImageCount);
+        Assert.Null(row.ProposedImagePath);
+        Assert.Equal(expectedStatus, row.ProposalStatus);
+        Assert.Equal(expectedStatus, vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task NewProposalCommand_reports_an_empty_folder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+
+        try
+        {
+            var vm = new MainViewModel(
+                new FakeSettingsStore(Array.Empty<WallpaperMonitorProfile>()),
+                new FakeMonitorRegistry("monitor-1"),
+                new FakeWallpaperService(),
+                _ => new FakeImagePicker(),
+                new FakeFolderPicker());
+            await vm.InitializeAsync();
+            vm.Monitors.Single().FolderPath = folder;
+
+            vm.NewProposalCommand.Execute(null);
+
+            var row = vm.Monitors.Single();
+            Assert.Equal(0, row.ImageCount);
+            Assert.Null(row.ProposedImagePath);
+            Assert.Equal($"No images found in {folder}.", row.ProposalStatus);
+            Assert.Equal(row.ProposalStatus, vm.StatusMessage);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyNowAsync_saves_rows_and_applies_the_picked_image()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"wallpaperchanger-{Guid.NewGuid():N}");
