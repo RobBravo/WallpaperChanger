@@ -95,3 +95,7 @@ dotnet test
 
 - La aplicación solo funciona en Windows porque usa las API de fondo de escritorio y monitor de Windows.
 - Si una carpeta deja de existir o no contiene imágenes compatibles, la rotación de ese monitor se pausa hasta corregirla.
+
+## Interfaz
+
+![Interfaz de WallpaperChanger mostrando el tablero de monitores y el panel de configuración](docs/images/interfaz.png)
