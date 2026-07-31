@@ -8,6 +8,12 @@ public sealed class WindowsMonitorRegistry : IMonitorRegistry
 {
     public IReadOnlyList<MonitorDescriptor> GetConnectedMonitors()
     {
+        // Monitor rectangles are only reported in true physical pixels when the calling
+        // thread is per-monitor-v2 DPI aware. The process-wide manifest setting does not
+        // reliably propagate to background threads (e.g. the rotation timer's Task.Run
+        // thread), so this must be set on every thread that enumerates monitors.
+        SetThreadDpiAwarenessContext(new IntPtr(-4));
+
         var monitors = new List<MonitorDescriptor>();
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
         {
@@ -45,6 +51,9 @@ public sealed class WindowsMonitorRegistry : IMonitorRegistry
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfoEx monitorInfo);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool EnumDisplayDevices(string deviceName, uint deviceIndex, ref DisplayDevice displayDevice, uint flags);
