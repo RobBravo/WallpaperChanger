@@ -40,7 +40,7 @@
                             <Grid>
                                 <Image x:Name="PreviewImage"
                                         Source="{Binding PreviewImagePath, NotifyOnTargetUpdated=True}"
-                                        Stretch="UniformToFill"
+                                        Stretch="Uniform"
                                         ImageFailed="PreviewImageFailed"
                                         TargetUpdated="PreviewImageSourceUpdated">
                                     <Image.Style>
